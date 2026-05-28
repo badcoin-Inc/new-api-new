@@ -1,0 +1,166 @@
+groups:
+  - name: new-api-sli
+    rules:
+      - record: newapi:http_qps:rate1m
+        expr: sum(rate(newapi_http_requests_total[1m]))
+
+      - record: newapi:http_error_rate:ratio5m
+        expr: |
+          sum(rate(newapi_http_requests_total{status_class=~"4xx|5xx"}[5m]))
+          /
+          clamp_min(sum(rate(newapi_http_requests_total[5m])), 1)
+
+      - record: newapi:relay_qps:rate1m
+        expr: sum(rate(newapi_relay_requests_total[1m]))
+
+      - record: newapi:relay_error_rate:ratio5m
+        expr: |
+          sum(rate(newapi_relay_requests_total{status_class=~"4xx|5xx"}[5m]))
+          /
+          clamp_min(sum(rate(newapi_relay_requests_total[5m])), 1)
+
+      - record: newapi:relay_error_rate_by_channel:ratio5m
+        expr: |
+          sum by (channel_id, channel_name, channel_type) (rate(newapi_relay_requests_total{status_class=~"4xx|5xx"}[5m]))
+          /
+          clamp_min(sum by (channel_id, channel_name, channel_type) (rate(newapi_relay_requests_total[5m])), 0.001)
+
+      - record: newapi:channel_test_failure_rate_by_channel:ratio5m
+        expr: |
+          sum by (trigger, channel_id, channel_name, channel_type) (increase(newapi_channel_test_total{result="failure"}[5m]))
+          /
+          clamp_min(sum by (trigger, channel_id, channel_name, channel_type) (increase(newapi_channel_test_total[5m])), 1)
+
+  - name: new-api-alerts
+    rules:
+      - alert: NewAPIInstanceDown
+        expr: up{job="new-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "new-api 实例不可用"
+          description: "Prometheus 连续 2 分钟无法抓取 new-api:3000/metrics。"
+
+      - alert: DatabaseDependencyDown
+        expr: newapi_dependency_up{dependency="database"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "数据库依赖异常"
+          description: "应用侧数据库健康探测连续 2 分钟失败。"
+
+      - alert: RedisDependencyDown
+        expr: newapi_dependency_up{dependency="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 依赖异常"
+          description: "应用侧 Redis 健康探测连续 2 分钟失败。"
+
+      - alert: NewAPIHighHTTPErrorRate
+        expr: |
+          newapi:http_error_rate:ratio5m > 0.10
+          and
+          sum(rate(newapi_http_requests_total[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP 错误率过高"
+          description: "最近 5 分钟应用 4xx/5xx 错误占比超过 10%，并持续 10 分钟。"
+
+      - alert: NewAPIRelayHighErrorRate
+        expr: |
+          newapi:relay_error_rate:ratio5m > 0.15
+          and
+          sum(rate(newapi_relay_requests_total[5m])) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Relay 错误率过高"
+          description: "最近 5 分钟 relay 错误占比超过 15%，并持续 10 分钟。"
+
+      - alert: NewAPIChannelHighErrorCount
+        expr: |
+          sum by (channel_id, channel_name, channel_type) (
+            increase(newapi_relay_requests_total{status_class="5xx",channel_id!="0",channel_type!="Unknown"}[5m])
+          ) > 12
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "渠道 5xx 错误激增"
+          description: "渠道 {{ $labels.channel_name }} (id={{ $labels.channel_id }}, type={{ $labels.channel_type }}) 在最近 5 分钟内 5xx 错误超过 12 次。"
+
+      - alert: NewAPIChannelHighErrorCountAny
+        expr: |
+          sum by (channel_id, channel_name, channel_type) (
+            increase(newapi_relay_requests_total{status_class=~"4xx|5xx",channel_id!="0",channel_type!="Unknown"}[1m])
+          ) >= 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "渠道错误激增(4xx/5xx)"
+          description: "渠道 {{ $labels.channel_name }} (id={{ $labels.channel_id }}, type={{ $labels.channel_type }}) 最近 1 分钟内 4xx/5xx 错误达到 3 次。"
+
+      - alert: NewAPIRelayHTTPErrorBurst
+        expr: |
+          sum by (method, route, status_code, status_class, error_reason) (
+            increase(newapi_http_requests_total{tag="relay",status_class=~"4xx|5xx"}[1m])
+          ) >= 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Relay 路由错误激增"
+          description: "{{ $labels.method }} {{ $labels.route }} 在最近 1 分钟内状态码 {{ $labels.status_code }} ({{ $labels.status_class }}) 错误达到 3 次，错误原因: {{ $labels.error_reason }}。"
+
+      - alert: NewAPIChannelTestFailureBurst
+        expr: |
+          sum by (trigger, channel_id, channel_name, channel_type) (
+            increase(newapi_channel_test_total{result="failure",channel_id!="0",channel_type!="Unknown"}[1m])
+          ) >= 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "渠道测试失败激增"
+          description: "{{ $labels.trigger }} 触发下，渠道 {{ $labels.channel_name }} (id={{ $labels.channel_id }}, type={{ $labels.channel_type }}) 最近 1 分钟测试失败达到 3 次。"
+
+      - alert: NewAPIChannelTestFailureRateHigh
+        expr: |
+          newapi:channel_test_failure_rate_by_channel:ratio5m > 0.6
+          and
+          sum by (trigger, channel_id, channel_name, channel_type) (increase(newapi_channel_test_total{channel_id!="0",channel_type!="Unknown"}[5m])) > 3
+        for: 90s
+        labels:
+          severity: critical
+        annotations:
+          summary: "渠道测试失败率过高"
+          description: "{{ $labels.trigger }} 触发下，渠道 {{ $labels.channel_name }} (id={{ $labels.channel_id }}, type={{ $labels.channel_type }}) 最近 5 分钟测试失败率超过 60%。"
+
+      - alert: NewAPIChannelTestFailureRateFull
+        expr: |
+          newapi:channel_test_failure_rate_by_channel:ratio5m >= 1
+          and
+          sum by (trigger, channel_id, channel_name, channel_type) (increase(newapi_channel_test_total{channel_id!="0",channel_type!="Unknown"}[5m])) >= 2
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "渠道测试 100% 失败"
+          description: "{{ $labels.trigger }} 触发下，渠道 {{ $labels.channel_name }} (id={{ $labels.channel_id }}, type={{ $labels.channel_type }}) 最近 5 分钟测试失败率为 100%。"
+
+      - alert: DownstreamProbeFailed
+        expr: probe_success{job="downstream-tcp"} == 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "下游连通性异常"
+          description: "blackbox 探测 {{ $labels.instance }} 连续 3 分钟不可达。"

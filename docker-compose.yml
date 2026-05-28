@@ -16,19 +16,21 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    image: calciumion/new-api:latest
+    image: ${NEW_API_IMAGE_REPOSITORY:-ghcr.io/badcoin-inc/new-api-new}:${NEW_API_IMAGE_TAG:-latest}
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
+    env_file:
+      - path: ./.env
+        required: false
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000" # 只允许本地访问，防止绕过雷池直连
     volumes:
       - ./data:/data
       - ./logs:/app/logs
     environment:
-      - SQL_DSN=postgresql://root:123456@postgres:5432/new-api # ⚠️ IMPORTANT: Change the password in production!
-#      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api  # Point to the mysql service, uncomment if using MySQL
-      - REDIS_CONN_STRING=redis://:123456@redis:6379 # ⚠️ IMPORTANT: Change the password in production!
+      - SQL_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - REDIS_CONN_STRING=redis://default:${REDIS_PASSWORD}@redis:6379
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
@@ -56,7 +58,7 @@ services:
     image: redis:latest
     container_name: redis
     restart: always
-    command: ["redis-server", "--requirepass", "123456"]  # ⚠️ IMPORTANT: Change this password in production!
+    command: redis-server --requirepass ${REDIS_PASSWORD}  # ⚠️ IMPORTANT: Change this password in production!
     networks:
       - new-api-network
 
@@ -65,15 +67,173 @@ services:
     container_name: postgres
     restart: always
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: 123456  # ⚠️ IMPORTANT: Change this password in production!
-      POSTGRES_DB: new-api
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
       - new-api-network
 #    ports:
 #      - "5432:5432"  # Uncomment if you need to access PostgreSQL from outside Docker
+
+  postgres-backup:
+    image: ${NEW_API_IMAGE_REPOSITORY:-ghcr.io/badcoin-inc/new-api-new}:${NEW_API_IMAGE_TAG:-latest}
+    container_name: postgres-backup
+    profiles:
+      - tools
+    entrypoint: ["/postgres-backup"]
+    volumes:
+      - ./data:/data
+    env_file:
+      - path: ./new-api-postgres-backup.env
+        required: false
+    environment:
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - POSTGRES_BACKUP_OUTPUT_DIR=/data/postgres-backups
+      - TZ=Asia/Shanghai
+    depends_on:
+      - postgres
+    networks:
+      - new-api-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prometheus
+    restart: always
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - ./monitoring/prometheus/downstream_targets.yml:/etc/prometheus/downstream_targets.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - new-api
+      - alertmanager
+      - redis-exporter
+      - postgres-exporter
+      - node-exporter
+      - cadvisor
+      - blackbox-exporter
+    networks:
+      - new-api-network
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: alertmanager
+    restart: always
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    depends_on:
+      - feishu-bridge
+    networks:
+      - new-api-network
+
+  feishu-bridge:
+    image: python:3.12-alpine
+    container_name: feishu-bridge
+    restart: always
+    command: ["python", "/app/feishu_bridge.py"]
+    env_file:
+      - path: ./monitoring/feishu-bridge/.env
+        required: false
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - ./monitoring/feishu-bridge/feishu_bridge.py:/app/feishu_bridge.py:ro
+    networks:
+      - new-api-network
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - new-api-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.65.0
+    container_name: redis-exporter
+    restart: always
+    command:
+      - --redis.addr=redis://redis:6379
+      - --redis.password=123456
+    depends_on:
+      - redis
+    networks:
+      - new-api-network
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: postgres-exporter
+    restart: always
+    environment:      
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      - postgres
+    networks:
+      - new-api-network
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    restart: always
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro
+    networks:
+      - new-api-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    restart: always
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - new-api-network
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: blackbox-exporter
+    restart: always
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    networks:
+      - new-api-network
 
 #  mysql:
 #    image: mysql:8.2
@@ -91,6 +251,9 @@ services:
 
 volumes:
   pg_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
 #  mysql_data:
 
 networks:

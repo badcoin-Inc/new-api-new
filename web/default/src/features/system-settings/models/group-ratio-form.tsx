@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { GroupRatioVisualEditor } from './group-ratio-visual-editor'
 import { GroupSpecialUsableRulesEditor } from './group-special-usable-editor'
 
@@ -55,6 +56,7 @@ type GroupFormValues = {
   GroupGroupRatio: string
   AutoGroups: string
   DefaultUseAutoGroup: boolean
+  DefaultGeneratedTokenGroups: string
   GroupSpecialUsableGroup: string
 }
 
@@ -153,6 +155,25 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='DefaultGeneratedTokenGroups'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Generated default token groups')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder='default,vip' {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Groups for tokens automatically generated after user creation. Comma-separated. Leave empty to use the auto-group switch behavior.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -301,6 +322,25 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='DefaultGeneratedTokenGroups'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Generated default token groups')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder='default,vip' {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Groups for tokens automatically generated after user creation. Comma-separated. Leave empty to use the auto-group switch behavior.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />

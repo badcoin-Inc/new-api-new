@@ -439,7 +439,7 @@ export function CreateDeploymentDrawer({
 
             {/* Resource Configuration */}
             <div className='space-y-4'>
-              <h3 className='text-sm font-medium'>
+              <h3 className='text-xs font-medium'>
                 {t('Resource Configuration')}
               </h3>
 

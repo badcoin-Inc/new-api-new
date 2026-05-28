@@ -20,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/monitoring"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/relay"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -836,6 +837,7 @@ func TestChannel(c *gin.Context) {
 	isStream, _ := strconv.ParseBool(c.Query("stream"))
 	tik := time.Now()
 	result := testChannel(channel, testModel, endpointType, isStream)
+	observeChannelTestResult("manual", channel, result, time.Since(tik).Seconds())
 	if result.localErr != nil {
 		resp := gin.H{
 			"success": false,
@@ -905,6 +907,11 @@ func testAllChannels(notify bool) error {
 			result := testChannel(channel, "", "", shouldUseStreamForAutomaticChannelTest(channel))
 			tok := time.Now()
 			milliseconds := tok.Sub(tik).Milliseconds()
+			trigger := "auto"
+			if notify {
+				trigger = "batch"
+			}
+			observeChannelTestResult(trigger, channel, result, tok.Sub(tik).Seconds())
 
 			shouldBanChannel := false
 			newAPIError := result.newAPIError
@@ -941,6 +948,13 @@ func testAllChannels(notify bool) error {
 		}
 	})
 	return nil
+}
+
+func observeChannelTestResult(trigger string, channel *model.Channel, result testResult, durationSeconds float64) {
+	if channel == nil {
+		return
+	}
+	monitoring.ObserveChannelTest(trigger, channel.Type, channel.Id, channel.Name, result.localErr == nil && result.newAPIError == nil, durationSeconds)
 }
 
 func TestAllChannels(c *gin.Context) {

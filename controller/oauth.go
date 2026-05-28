@@ -23,6 +23,17 @@ func providerParams(name string) map[string]any {
 func GenerateOAuthCode(c *gin.Context) {
 	session := sessions.Default(c)
 	state := common.GetRandomString(12)
+	returnURL := c.Query("return_url")
+	if returnURL != "" {
+		if err := common.ValidateRedirectURL(returnURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+		session.Set(oauthReturnURLSessionKey, returnURL)
+	}
 	affCode := c.Query("aff")
 	if affCode != "" {
 		session.Set("aff", affCode)
@@ -66,7 +77,7 @@ func HandleOAuth(c *gin.Context) {
 
 	// 2. Check if user is already logged in (bind flow)
 	username := session.Get("username")
-	if username != nil {
+	if username != nil && session.Get(oauthModeSessionKey) != "login" {
 		handleOAuthBind(c, provider)
 		return
 	}
@@ -124,7 +135,27 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 9. Setup login
-	setupLogin(user, c)
+	if !setupLoginSession(user, c) {
+		return
+	}
+	returnURL := ""
+	if rawReturnURL := session.Get(oauthReturnURLSessionKey); rawReturnURL != nil {
+		if value, ok := rawReturnURL.(string); ok {
+			returnURL = value
+		}
+	}
+	session.Delete(oauthReturnURLSessionKey)
+	session.Delete(oauthModeSessionKey)
+	_ = session.Save()
+	if returnURL != "" {
+		c.Redirect(http.StatusFound, returnURL)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "",
+		"success": true,
+		"data":    loginSuccessData(user),
+	})
 }
 
 // handleOAuthBind handles binding OAuth account to existing user

@@ -16,10 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-
-	"github.com/QuantumNous/new-api/constant"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -90,9 +87,11 @@ func Login(c *gin.Context) {
 	setupLogin(&user, c)
 }
 
-// setup session & cookies and then return user info
-func setupLogin(user *model.User, c *gin.Context) {
+func setupLoginSession(user *model.User, c *gin.Context) bool {
 	model.UpdateUserLastLoginAt(user.Id)
+	if _, err := model.EnsureKayaDefaultTokens(user.Id); err != nil {
+		common.SysError(fmt.Sprintf("failed to ensure kaya default tokens for user %d: %s", user.Id, err.Error()))
+	}
 	session := sessions.Default(c)
 	session.Set("id", user.Id)
 	session.Set("username", user.Username)
@@ -102,19 +101,31 @@ func setupLogin(user *model.User, c *gin.Context) {
 	err := session.Save()
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
+		return false
+	}
+	return true
+}
+
+func loginSuccessData(user *model.User) map[string]any {
+	return map[string]any{
+		"id":           user.Id,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"role":         user.Role,
+		"status":       user.Status,
+		"group":        user.Group,
+	}
+}
+
+// setup session & cookies and then return user info
+func setupLogin(user *model.User, c *gin.Context) {
+	if !setupLoginSession(user, c) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
-		"data": map[string]any{
-			"id":           user.Id,
-			"username":     user.Username,
-			"display_name": user.DisplayName,
-			"role":         user.Role,
-			"status":       user.Status,
-			"group":        user.Group,
-		},
+		"data":    loginSuccessData(user),
 	})
 }
 
@@ -191,39 +202,9 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// 获取插入后的用户ID
-	var insertedUser model.User
-	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
-		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
+	if _, err := model.EnsureKayaDefaultTokens(cleanUser.Id); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
 		return
-	}
-	// 生成默认令牌
-	if constant.GenerateDefaultToken {
-		key, err := common.GenerateKey()
-		if err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUserDefaultTokenFailed)
-			common.SysLog("failed to generate token key: " + err.Error())
-			return
-		}
-		// 生成默认令牌
-		token := model.Token{
-			UserId:             insertedUser.Id, // 使用插入后的用户ID
-			Name:               cleanUser.Username + "的初始令牌",
-			Key:                key,
-			CreatedTime:        common.GetTimestamp(),
-			AccessedTime:       common.GetTimestamp(),
-			ExpiredTime:        -1,     // 永不过期
-			RemainQuota:        500000, // 示例额度
-			UnlimitedQuota:     true,
-			ModelLimitsEnabled: false,
-		}
-		if setting.DefaultUseAutoGroup {
-			token.Group = "auto"
-		}
-		if err := token.Insert(); err != nil {
-			common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
-			return
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

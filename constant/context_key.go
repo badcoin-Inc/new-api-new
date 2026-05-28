@@ -63,6 +63,9 @@ const (
 	// It is not returned to end users, but can be persisted into consume/error logs for debugging.
 	ContextKeyAdminRejectReason ContextKey = "admin_reject_reason"
 
+	// ContextKeyRelayErrorReason stores normalized relay error reason for metrics/alerts.
+	ContextKeyRelayErrorReason ContextKey = "relay_error_reason"
+
 	// ContextKeyLanguage stores the user's language preference for i18n
 	ContextKeyLanguage ContextKey = "language"
 	ContextKeyIsStream ContextKey = "is_stream"

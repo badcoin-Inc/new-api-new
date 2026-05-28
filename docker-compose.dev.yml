@@ -22,14 +22,19 @@ services:
     image: new-api-dev:local
     container_name: new-api-dev
     restart: unless-stopped
+    env_file:
+      - path: ./.env
+        required: false
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000" # 只允许本地访问，防止绕过雷池直连
     volumes:
       - dev_data:/data
     environment:
-      - SQL_DSN=postgresql://root:123456@postgres:5432/new-api
-      - REDIS_CONN_STRING=redis://redis
+      - SQL_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - REDIS_CONN_STRING=redis://default:${REDIS_PASSWORD}@redis:6379
+      - SESSION_SECRET=${SESSION_SECRET}
       - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true
       - BATCH_UPDATE_ENABLED=true
     depends_on:
       redis:
@@ -51,22 +56,185 @@ services:
     container_name: new-api-dev-pg
     restart: unless-stopped
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: new-api
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - dev_pg_data:/var/lib/postgresql/data
     networks:
       - dev-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d new-api"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5
 
+  postgres-backup:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: new-api-dev:local
+    container_name: new-api-dev-postgres-backup
+    profiles:
+      - tools
+    entrypoint: ["/postgres-backup"]
+    volumes:
+      - dev_data:/data
+    env_file:
+      - path: ./new-api-postgres-backup.env
+        required: false
+    environment:
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - POSTGRES_BACKUP_OUTPUT_DIR=/data/postgres-backups
+      - TZ=Asia/Shanghai
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: new-api-dev-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - ./monitoring/prometheus/downstream_targets.yml:/etc/prometheus/downstream_targets.yml:ro
+      - dev_prometheus_data:/prometheus
+    depends_on:
+      - new-api
+      - alertmanager
+      - redis-exporter
+      - postgres-exporter
+      - node-exporter
+      - cadvisor
+      - blackbox-exporter
+    networks:
+      - dev-network
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: new-api-dev-alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - dev_alertmanager_data:/alertmanager
+    depends_on:
+      - feishu-bridge
+    networks:
+      - dev-network
+
+  feishu-bridge:
+    image: python:3.12-alpine
+    container_name: new-api-dev-feishu-bridge
+    restart: unless-stopped
+    command: ["python", "/app/feishu_bridge.py"]
+    env_file:
+      - path: ./monitoring/feishu-bridge/.env
+        required: false
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - ./monitoring/feishu-bridge/feishu_bridge.py:/app/feishu_bridge.py:ro
+    networks:
+      - dev-network
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: new-api-dev-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - dev_grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - dev-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.65.0
+    container_name: new-api-dev-redis-exporter
+    restart: unless-stopped
+    command:
+      - --redis.addr=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - dev-network
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: new-api-dev-postgres-exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: new-api-dev-node-exporter
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro
+    networks:
+      - dev-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: new-api-dev-cadvisor
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - dev-network
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: new-api-dev-blackbox-exporter
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    networks:
+      - dev-network
+
 volumes:
   dev_data:
   dev_pg_data:
+  dev_prometheus_data:
+  dev_alertmanager_data:
+  dev_grafana_data:
 
 networks:
   dev-network:

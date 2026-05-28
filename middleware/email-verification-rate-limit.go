@@ -18,6 +18,11 @@ const (
 )
 
 func redisEmailVerificationRateLimiter(c *gin.Context) {
+	if isKayaInternalRequest(c) {
+		c.Next()
+		return
+	}
+
 	ctx := context.Background()
 	rdb := common.RDB
 	key := "emailVerification:" + EmailVerificationRateLimitMark + ":" + c.ClientIP()
@@ -55,6 +60,11 @@ func redisEmailVerificationRateLimiter(c *gin.Context) {
 }
 
 func memoryEmailVerificationRateLimiter(c *gin.Context) {
+	if isKayaInternalRequest(c) {
+		c.Next()
+		return
+	}
+
 	key := EmailVerificationRateLimitMark + ":" + c.ClientIP()
 
 	if !inMemoryRateLimiter.Request(key, EmailVerificationMaxRequests, EmailVerificationDuration) {

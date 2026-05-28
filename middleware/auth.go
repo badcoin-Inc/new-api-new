@@ -337,6 +337,8 @@ func TokenAuth() func(c *gin.Context) {
 			}
 		}
 		if err != nil {
+			reason := classifyRelayTokenErrorReason(err.Error())
+			common.SetContextKey(c, constant.ContextKeyRelayErrorReason, reason)
 			if errors.Is(err, model.ErrDatabase) {
 				common.SysLog("TokenAuth ValidateUserToken database error: " + err.Error())
 				abortWithOpenAiMessage(c, http.StatusInternalServerError,
@@ -403,6 +405,23 @@ func TokenAuth() func(c *gin.Context) {
 			return
 		}
 		c.Next()
+	}
+}
+
+func classifyRelayTokenErrorReason(message string) string {
+	switch {
+	case strings.Contains(message, "未提供令牌"):
+		return "token_missing"
+	case strings.Contains(message, "无效的令牌"):
+		return "token_invalid"
+	case strings.Contains(message, "已过期"):
+		return "token_expired"
+	case strings.Contains(message, "额度已用尽"):
+		return "token_exhausted"
+	case strings.Contains(message, "状态不可用"):
+		return "token_disabled"
+	default:
+		return "token_auth_failed"
 	}
 }
 

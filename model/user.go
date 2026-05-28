@@ -421,6 +421,9 @@ func (user *User) Insert(inviterId int) error {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
+	if _, err := EnsureKayaDefaultTokens(user.Id); err != nil {
+		common.SysError(fmt.Sprintf("failed to create kaya default tokens for user %d: %s", user.Id, err.Error()))
+	}
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
 			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
@@ -481,6 +484,9 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
+	}
+	if _, err := EnsureKayaDefaultTokens(user.Id); err != nil {
+		common.SysError(fmt.Sprintf("failed to create kaya default tokens for user %d: %s", user.Id, err.Error()))
 	}
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {

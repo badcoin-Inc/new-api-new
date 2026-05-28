@@ -2,8 +2,11 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -18,7 +21,22 @@ var defNext = func(c *gin.Context) {
 	c.Next()
 }
 
+func isKayaInternalRequest(c *gin.Context) bool {
+	internalToken := strings.TrimSpace(os.Getenv("KAYA_INTERNAL_TOKEN"))
+	if internalToken == "" {
+		return false
+	}
+
+	requestToken := strings.TrimSpace(c.GetHeader("x-kaya-internal-token"))
+	return subtle.ConstantTimeCompare([]byte(requestToken), []byte(internalToken)) == 1
+}
+
 func redisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark string) {
+	if isKayaInternalRequest(c) {
+		c.Next()
+		return
+	}
+
 	ctx := context.Background()
 	rdb := common.RDB
 	key := "rateLimit:" + mark + c.ClientIP()
@@ -65,6 +83,11 @@ func redisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark st
 }
 
 func memoryRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark string) {
+	if isKayaInternalRequest(c) {
+		c.Next()
+		return
+	}
+
 	key := mark + c.ClientIP()
 	if !inMemoryRateLimiter.Request(key, maxRequestNum, duration) {
 		c.Status(http.StatusTooManyRequests)
