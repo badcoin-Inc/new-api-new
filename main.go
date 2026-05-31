@@ -185,6 +185,7 @@ func main() {
 	// Initialize session store
 	store := cookie.NewStore([]byte(common.SessionSecret))
 	store.Options(sessions.Options{
+		Domain:   common.SessionCookieDomain(),
 		Path:     "/",
 		MaxAge:   2592000, // 30 days
 		HttpOnly: true,

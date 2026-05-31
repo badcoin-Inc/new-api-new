@@ -19,3 +19,7 @@ func SessionCookieSameSiteMode() http.SameSite {
 func SessionCookieSecure() bool {
 	return strings.EqualFold(strings.TrimSpace(GetEnvOrDefaultString("SESSION_COOKIE_SECURE", "false")), "true")
 }
+
+func SessionCookieDomain() string {
+	return strings.TrimSpace(GetEnvOrDefaultString("SESSION_COOKIE_DOMAIN", ""))
+}
