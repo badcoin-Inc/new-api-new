@@ -60,16 +60,25 @@ export function Turnstile({
       render()
       return
     }
+
+    const handleLoad = () => render()
     const scriptId = 'cf-turnstile'
-    if (document.getElementById(scriptId)) return
+    const existingScript = document.getElementById(scriptId)
+    if (existingScript) {
+      existingScript.addEventListener('load', handleLoad)
+      return () => existingScript.removeEventListener('load', handleLoad)
+    }
+
     const s = document.createElement('script')
     s.id = scriptId
     s.src =
       'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
     s.async = true
     s.defer = true
-    s.onload = () => render()
+    s.addEventListener('load', handleLoad)
     document.head.appendChild(s)
+
+    return () => s.removeEventListener('load', handleLoad)
   }, [siteKey, onVerify, onExpire])
 
   return <div ref={ref} className={className} />
