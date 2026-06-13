@@ -102,13 +102,27 @@ services:
     container_name: prometheus
     restart: always
     command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=3d
+      - /bin/sh
+      - -c
+      - |
+        awk '
+        /# __METRICS_AUTH__/ {
+          if (ENVIRON["METRICS_TOKEN"] != "") {
+            print "    authorization:"
+            print "      type: Bearer"
+            print "      credentials: " ENVIRON["METRICS_TOKEN"]
+          }
+          next
+        }
+        { print }
+        ' /etc/prometheus/prometheus.yml.template > /tmp/prometheus.yml
+        exec /bin/prometheus --config.file=/tmp/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=3d
+    environment:
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.template:ro
       - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
       - ./monitoring/prometheus/downstream_targets.yml:/etc/prometheus/downstream_targets.yml:ro
       - prometheus_data:/prometheus

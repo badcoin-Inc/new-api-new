@@ -84,6 +84,7 @@ cp monitoring/feishu-bridge/.env.example monitoring/feishu-bridge/.env
   - `Authorization: Bearer <token>`
   - `X-Metrics-Token: <token>`
   - `?token=<token>`
+- Docker Compose 部署会把 `METRICS_TOKEN` 注入 Prometheus，并自动为 `new-api` 抓取配置添加 `Authorization: Bearer <token>`。
 
 ## 5. 指标与面板含义
 

@@ -47,6 +47,7 @@ const getGroupDefaults = (settings: BillingSettings) => ({
   AutoGroups: settings.AutoGroups,
   DefaultUseAutoGroup: settings.DefaultUseAutoGroup,
   DefaultGeneratedTokenGroups: settings.DefaultGeneratedTokenGroups,
+  DefaultGeneratedTokenGroupsByApp: settings.DefaultGeneratedTokenGroupsByApp,
   GroupSpecialUsableGroup:
     settings['group_ratio_setting.group_special_usable_group'],
 })

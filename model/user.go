@@ -35,7 +35,8 @@ type User struct {
 	OidcId           string         `json:"oidc_id" gorm:"column:oidc_id;index"`
 	WeChatId         string         `json:"wechat_id" gorm:"column:wechat_id;index"`
 	TelegramId       string         `json:"telegram_id" gorm:"column:telegram_id;index"`
-	VerificationCode string         `json:"verification_code" gorm:"-:all"`                                    // this field is only for Email verification, don't save it to database!
+	VerificationCode string         `json:"verification_code" gorm:"-:all"` // this field is only for Email verification, don't save it to database!
+	DefaultTokenApp  string         `json:"default_token_app" gorm:"-:all"`
 	AccessToken      *string        `json:"access_token" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
 	Quota            int            `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
@@ -380,6 +381,10 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 }
 
 func (user *User) Insert(inviterId int) error {
+	return user.InsertWithDefaultTokenAppName(inviterId, "")
+}
+
+func (user *User) InsertWithDefaultTokenAppName(inviterId int, defaultTokenAppName string) error {
 	var err error
 	if user.Password != "" {
 		user.Password, err = common.Password2Hash(user.Password)
@@ -421,8 +426,10 @@ func (user *User) Insert(inviterId int) error {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
-	if _, err := EnsureKayaDefaultTokens(user.Id); err != nil {
-		common.SysError(fmt.Sprintf("failed to create kaya default tokens for user %d: %s", user.Id, err.Error()))
+	if IsKayaDefaultTokenApp(defaultTokenAppName) {
+		if _, err := EnsureKayaDefaultTokens(user.Id, defaultTokenAppName); err != nil {
+			common.SysError(fmt.Sprintf("failed to create kaya default tokens for user %d: %s", user.Id, err.Error()))
+		}
 	}
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
@@ -469,6 +476,10 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 // FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.
 // This should be called after the transaction commits successfully.
 func (user *User) FinalizeOAuthUserCreation(inviterId int) {
+	user.FinalizeOAuthUserCreationWithDefaultTokenAppName(inviterId, "")
+}
+
+func (user *User) FinalizeOAuthUserCreationWithDefaultTokenAppName(inviterId int, defaultTokenAppName string) {
 	// 用户创建成功后，根据角色初始化边栏配置
 	var createdUser User
 	if err := DB.Where("id = ?", user.Id).First(&createdUser).Error; err == nil {
@@ -485,8 +496,10 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
-	if _, err := EnsureKayaDefaultTokens(user.Id); err != nil {
-		common.SysError(fmt.Sprintf("failed to create kaya default tokens for user %d: %s", user.Id, err.Error()))
+	if IsKayaDefaultTokenApp(defaultTokenAppName) {
+		if _, err := EnsureKayaDefaultTokens(user.Id, defaultTokenAppName); err != nil {
+			common.SysError(fmt.Sprintf("failed to create kaya default tokens for user %d: %s", user.Id, err.Error()))
+		}
 	}
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {

@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +19,7 @@ import (
 
 const oauthReturnURLSessionKey = "oauth_return_url"
 const oauthModeSessionKey = "oauth_mode"
+const oauthAppNameSessionKey = "oauth_app_name"
 
 // StartOAuth starts an OAuth flow on behalf of an external frontend such as Kaya.
 // It keeps the existing callback handler intact and only stores a validated return_url
@@ -40,6 +43,7 @@ func StartOAuth(c *gin.Context) {
 	state := common.GetRandomString(12)
 	session.Set("oauth_state", state)
 	session.Set(oauthModeSessionKey, "login")
+	session.Set(oauthAppNameSessionKey, defaultOAuthAppName(c))
 
 	returnURL := c.Query("return_url")
 	if returnURL != "" {
@@ -68,7 +72,42 @@ func StartOAuth(c *gin.Context) {
 		return
 	}
 
+	if c.Query("launch") == "1" {
+		writeOAuthLaunchPage(c, authorizeURL)
+		return
+	}
+
 	c.Redirect(http.StatusFound, authorizeURL)
+}
+
+func writeOAuthLaunchPage(c *gin.Context, authorizeURL string) {
+	encodedURL, _ := json.Marshal(authorizeURL)
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>正在跳转 OAuth</title>
+  <script>window.location.replace(%s);</script>
+  <meta http-equiv="refresh" content="0;url=%s">
+</head>
+<body>
+  <p>正在打开 GitHub 登录...</p>
+  <p><a href="%s">如果没有自动跳转，点击这里继续</a></p>
+</body>
+</html>`, string(encodedURL), html.EscapeString(authorizeURL), html.EscapeString(authorizeURL))
+}
+
+func defaultOAuthAppName(c *gin.Context) string {
+	appName := strings.TrimSpace(c.Query("app"))
+	if appName == "" {
+		appName = strings.TrimSpace(c.Query("client"))
+	}
+	if appName == "" {
+		appName = "Kaya"
+	}
+	return appName
 }
 
 func buildOAuthAuthorizeURL(c *gin.Context, providerName string, state string) (string, error) {

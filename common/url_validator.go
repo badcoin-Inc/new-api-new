@@ -8,6 +8,13 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 )
 
+var trustedRedirectSchemes = map[string]bool{
+	"kaya":         true,
+	"kaya-pdf":     true,
+	"kaya-pdf-app": true,
+	"ai-chat":      true,
+}
+
 // ValidateRedirectURL validates that a redirect URL is safe to use.
 // It checks that:
 //   - The URL is properly formatted
@@ -21,6 +28,10 @@ func ValidateRedirectURL(rawURL string) error {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid URL format: %s", err.Error())
+	}
+
+	if trustedRedirectSchemes[parsedURL.Scheme] {
+		return nil
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {

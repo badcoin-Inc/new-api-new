@@ -185,6 +185,27 @@ const groupSchema = z.object({
   }),
   DefaultUseAutoGroup: z.boolean(),
   DefaultGeneratedTokenGroups: z.string(),
+  DefaultGeneratedTokenGroupsByApp: z.string().superRefine((value, ctx) => {
+    const result = validateJsonString(value, {
+      predicate: (parsed) =>
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        !Array.isArray(parsed) &&
+        Object.values(parsed).every(
+          (groups) =>
+            Array.isArray(groups) &&
+            groups.every((group) => typeof group === 'string')
+        ),
+      predicateMessage:
+        'Expected a JSON object mapping app names to group arrays',
+    })
+    if (!result.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.message || 'Invalid JSON object',
+      })
+    }
+  }),
   GroupSpecialUsableGroup: z.string().superRefine((value, ctx) => {
     const result = validateJsonString(value)
     if (!result.valid) {
@@ -262,6 +283,9 @@ export function RatioSettingsCard({
     AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
     DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
     DefaultGeneratedTokenGroups: groupDefaults.DefaultGeneratedTokenGroups,
+    DefaultGeneratedTokenGroupsByApp: normalizeJsonString(
+      groupDefaults.DefaultGeneratedTokenGroupsByApp
+    ),
     GroupSpecialUsableGroup: normalizeJsonString(
       groupDefaults.GroupSpecialUsableGroup
     ),
@@ -297,6 +321,9 @@ export function RatioSettingsCard({
       UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
       GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
+      DefaultGeneratedTokenGroupsByApp: formatJsonForTextarea(
+        groupDefaults.DefaultGeneratedTokenGroupsByApp
+      ),
       GroupSpecialUsableGroup: formatJsonForTextarea(
         groupDefaults.GroupSpecialUsableGroup
       ),
@@ -346,6 +373,9 @@ export function RatioSettingsCard({
       AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
       DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
       DefaultGeneratedTokenGroups: groupDefaults.DefaultGeneratedTokenGroups,
+      DefaultGeneratedTokenGroupsByApp: normalizeJsonString(
+        groupDefaults.DefaultGeneratedTokenGroupsByApp
+      ),
       GroupSpecialUsableGroup: normalizeJsonString(
         groupDefaults.GroupSpecialUsableGroup
       ),
@@ -358,6 +388,9 @@ export function RatioSettingsCard({
       UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
       GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
+      DefaultGeneratedTokenGroupsByApp: formatJsonForTextarea(
+        groupDefaults.DefaultGeneratedTokenGroupsByApp
+      ),
       GroupSpecialUsableGroup: formatJsonForTextarea(
         groupDefaults.GroupSpecialUsableGroup
       ),
@@ -409,6 +442,9 @@ export function RatioSettingsCard({
         AutoGroups: normalizeJsonString(values.AutoGroups),
         DefaultUseAutoGroup: values.DefaultUseAutoGroup,
         DefaultGeneratedTokenGroups: values.DefaultGeneratedTokenGroups,
+        DefaultGeneratedTokenGroupsByApp: normalizeJsonString(
+          values.DefaultGeneratedTokenGroupsByApp
+        ),
         GroupSpecialUsableGroup: normalizeJsonString(
           values.GroupSpecialUsableGroup
         ),

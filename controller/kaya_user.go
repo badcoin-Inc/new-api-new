@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -89,6 +90,55 @@ func GetKayaSelf(c *gin.Context) {
 			"request_count":  user.RequestCount,
 			"default_token":  defaultTokenData,
 			"default_tokens": defaultTokensData,
+		},
+	})
+}
+
+// GetKayaSelfByToken returns the token owner's latest user profile for Kaya services.
+func GetKayaSelfByToken(c *gin.Context) {
+	key := c.GetHeader("Authorization")
+	if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
+		key = strings.TrimSpace(key[7:])
+	}
+	key = strings.TrimPrefix(key, "sk-")
+	if key == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "missing token",
+		})
+		return
+	}
+
+	token, err := model.ValidateUserToken(key)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "invalid token",
+		})
+		return
+	}
+
+	user, err := model.GetUserById(token.UserId, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	user.Remark = ""
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": map[string]interface{}{
+			"id":            user.Id,
+			"username":      user.Username,
+			"display_name":  user.DisplayName,
+			"role":          user.Role,
+			"status":        user.Status,
+			"email":         user.Email,
+			"group":         user.Group,
+			"quota":         user.Quota,
+			"used_quota":    user.UsedQuota,
+			"request_count": user.RequestCount,
 		},
 	})
 }

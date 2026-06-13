@@ -23,8 +23,10 @@ import (
 )
 
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	App             string `json:"app"`
+	DefaultTokenApp string `json:"default_token_app"`
 }
 
 func Login(c *gin.Context) {
@@ -87,11 +89,27 @@ func Login(c *gin.Context) {
 	setupLogin(&user, c)
 }
 
-func setupLoginSession(user *model.User, c *gin.Context) bool {
-	model.UpdateUserLastLoginAt(user.Id)
-	if _, err := model.EnsureKayaDefaultTokens(user.Id); err != nil {
-		common.SysError(fmt.Sprintf("failed to ensure kaya default tokens for user %d: %s", user.Id, err.Error()))
+func defaultLoginAppName(c *gin.Context, requestAppNames ...string) string {
+	appName := strings.TrimSpace(c.Query("app"))
+	if appName == "" {
+		appName = strings.TrimSpace(c.Query("client"))
 	}
+	if appName == "" {
+		for _, requestAppName := range requestAppNames {
+			if value := strings.TrimSpace(requestAppName); value != "" {
+				return value
+			}
+		}
+	}
+	return appName
+}
+
+func setupLoginSession(user *model.User, c *gin.Context) bool {
+	return setupLoginSessionForApp(user, c, "")
+}
+
+func setupLoginSessionForApp(user *model.User, c *gin.Context, appName string) bool {
+	model.UpdateUserLastLoginAt(user.Id)
 	session := sessions.Default(c)
 	session.Set("id", user.Id)
 	session.Set("username", user.Username)
@@ -119,7 +137,11 @@ func loginSuccessData(user *model.User) map[string]any {
 
 // setup session & cookies and then return user info
 func setupLogin(user *model.User, c *gin.Context) {
-	if !setupLoginSession(user, c) {
+	setupLoginForApp(user, c, "")
+}
+
+func setupLoginForApp(user *model.User, c *gin.Context, appName string) {
+	if !setupLoginSessionForApp(user, c, appName) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -187,6 +209,7 @@ func Register(c *gin.Context) {
 	}
 	affCode := user.AffCode // this code is the inviter's code, not the user's own code
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
+	defaultTokenAppName := defaultRegisterAppName(c, user.DefaultTokenApp)
 	cleanUser := model.User{
 		Username:    user.Username,
 		Password:    user.Password,
@@ -197,13 +220,8 @@ func Register(c *gin.Context) {
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
 	}
-	if err := cleanUser.Insert(inviterId); err != nil {
+	if err := cleanUser.InsertWithDefaultTokenAppName(inviterId, defaultTokenAppName); err != nil {
 		common.ApiError(c, err)
-		return
-	}
-
-	if _, err := model.EnsureKayaDefaultTokens(cleanUser.Id); err != nil {
-		common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
 		return
 	}
 
@@ -212,6 +230,17 @@ func Register(c *gin.Context) {
 		"message": "",
 	})
 	return
+}
+
+func defaultRegisterAppName(c *gin.Context, requestAppName string) string {
+	appName := strings.TrimSpace(c.Query("app"))
+	if appName == "" {
+		appName = strings.TrimSpace(c.Query("client"))
+	}
+	if appName == "" {
+		appName = strings.TrimSpace(requestAppName)
+	}
+	return appName
 }
 
 func GetAllUsers(c *gin.Context) {

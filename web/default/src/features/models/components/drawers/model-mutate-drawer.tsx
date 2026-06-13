@@ -184,6 +184,7 @@ export function ModelMutateDrawer({
       AutoGroups: '',
       DefaultUseAutoGroup: false,
       DefaultGeneratedTokenGroups: '',
+      DefaultGeneratedTokenGroupsByApp: '{}',
       CreateCacheRatio: '',
       'group_ratio_setting.group_special_usable_group': '{}',
       'grok.violation_deduction_enabled': false,

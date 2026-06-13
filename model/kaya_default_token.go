@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -11,19 +12,49 @@ import (
 )
 
 const KayaDefaultTokenNamePrefix = "Kaya Default Token"
+const KayaDefaultTokenAppName = "Kaya"
+
+func IsKayaDefaultTokenApp(appName string) bool {
+	return strings.EqualFold(strings.TrimSpace(appName), KayaDefaultTokenAppName)
+}
+
+func appDefaultTokenNamePrefix(appName string) string {
+	cleanAppName := strings.TrimSpace(appName)
+	if cleanAppName == "" {
+		return KayaDefaultTokenNamePrefix
+	}
+	return fmt.Sprintf("%s Default Token", sanitizeDefaultTokenAppName(cleanAppName))
+}
+
+func sanitizeDefaultTokenAppName(appName string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == ' ' {
+			return r
+		}
+		return '-'
+	}, appName)
+}
 
 // EnsureKayaDefaultTokens creates idempotent default tokens for Kaya usage.
 // The tokens never expire and have unlimited quota so Kaya can use them as the
 // default credentials for chat, generation, agents and tools.
 // Returns the list of newly created tokens (excludes already existing ones).
-func EnsureKayaDefaultTokens(userId int) ([]*Token, error) {
+func EnsureKayaDefaultTokens(userId int, appName ...string) ([]*Token, error) {
 	if userId == 0 || !constant.GenerateDefaultToken {
 		return nil, nil
 	}
 
-	groups := setting.GetDefaultGeneratedTokenGroups()
+	app := ""
+	if len(appName) > 0 {
+		app = appName[0]
+	}
+	groups := setting.GetDefaultGeneratedTokenGroupsForApp(app)
 	if len(groups) == 0 {
 		return nil, nil
+	}
+	prefix := KayaDefaultTokenNamePrefix
+	if app != "" {
+		prefix = appDefaultTokenNamePrefix(app)
 	}
 
 	var result []*Token
@@ -34,29 +65,24 @@ func EnsureKayaDefaultTokens(userId int) ([]*Token, error) {
 			return err
 		}
 
-		// Build token names for all groups
-		tokenNames := make([]string, len(groups))
-		for i, g := range groups {
-			tokenNames[i] = fmt.Sprintf("%s (%s)", KayaDefaultTokenNamePrefix, g)
-		}
-
-		// Find existing tokens
+		// Find existing tokens by group so one app does not create duplicate keys
+		// when a user already has a usable token for the same group.
 		var existingTokens []Token
-		if err := tx.Where("user_id = ? AND name IN ?", userId, tokenNames).Find(&existingTokens).Error; err != nil {
+		if err := tx.Where(fmt.Sprintf("user_id = ? AND %s IN ?", commonGroupCol), userId, groups).Find(&existingTokens).Error; err != nil {
 			return err
 		}
 
 		existingMap := make(map[string]bool)
 		for _, t := range existingTokens {
-			existingMap[t.Name] = true
+			existingMap[t.Group] = true
 		}
 
 		// Build tokens to insert
 		now := common.GetTimestamp()
 		var newTokens []*Token
 		for _, group := range groups {
-			name := fmt.Sprintf("%s (%s)", KayaDefaultTokenNamePrefix, group)
-			if existingMap[name] {
+			name := fmt.Sprintf("%s (%s)", prefix, group)
+			if existingMap[group] {
 				continue
 			}
 
@@ -103,6 +129,37 @@ func GetKayaDefaultTokens(userId int) ([]*Token, error) {
 		return nil, err
 	}
 	return tokens, nil
+}
+
+// GetKayaDefaultTokensForApp returns generated default tokens for a specific app.
+func GetKayaDefaultTokensForApp(userId int, appName string) ([]*Token, error) {
+	groups := setting.GetDefaultGeneratedTokenGroupsForApp(appName)
+	if len(groups) == 0 {
+		return []*Token{}, nil
+	}
+
+	prefix := KayaDefaultTokenNamePrefix
+	if strings.TrimSpace(appName) != "" {
+		prefix = appDefaultTokenNamePrefix(appName)
+	}
+
+	tokenNames := make([]string, len(groups))
+	for i, group := range groups {
+		tokenNames[i] = fmt.Sprintf("%s (%s)", prefix, group)
+	}
+
+	var tokens []*Token
+	if err := DB.Where("user_id = ? AND name IN ?", userId, tokenNames).Find(&tokens).Error; err != nil {
+		return nil, err
+	}
+	return tokens, nil
+}
+
+func EnsureKayaDefaultTokensForApp(userId int, appName string) ([]*Token, error) {
+	if _, err := EnsureKayaDefaultTokens(userId, appName); err != nil {
+		return nil, err
+	}
+	return GetKayaDefaultTokensForApp(userId, appName)
 }
 
 // EnsureKayaDefaultToken is a convenience wrapper that creates all configured

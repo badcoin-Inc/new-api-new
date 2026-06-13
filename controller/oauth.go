@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
@@ -77,7 +78,7 @@ func HandleOAuth(c *gin.Context) {
 
 	// 2. Check if user is already logged in (bind flow)
 	username := session.Get("username")
-	if username != nil && session.Get(oauthModeSessionKey) != "login" {
+	if username != nil && session.Get(oauthModeSessionKey) != "login" && session.Get(oauthReturnURLSessionKey) == nil {
 		handleOAuthBind(c, provider)
 		return
 	}
@@ -115,6 +116,7 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 7. Find or create user
+	appName := oauthSessionAppName(session)
 	user, err := findOrCreateOAuthUser(c, provider, oauthUser, session)
 	if err != nil {
 		switch err.(type) {
@@ -135,7 +137,7 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 9. Setup login
-	if !setupLoginSession(user, c) {
+	if !setupLoginSessionForApp(user, c, appName) {
 		return
 	}
 	returnURL := ""
@@ -146,9 +148,20 @@ func HandleOAuth(c *gin.Context) {
 	}
 	session.Delete(oauthReturnURLSessionKey)
 	session.Delete(oauthModeSessionKey)
+	session.Delete(oauthAppNameSessionKey)
 	_ = session.Save()
 	if returnURL != "" {
-		c.Redirect(http.StatusFound, returnURL)
+		exchangeCode, err := model.CreateKayaOAuthExchangeCode(user.Id, appName)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		redirectURL, err := appendOAuthExchangeParams(returnURL, exchangeCode, state)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -156,6 +169,29 @@ func HandleOAuth(c *gin.Context) {
 		"success": true,
 		"data":    loginSuccessData(user),
 	})
+}
+
+func appendOAuthExchangeParams(returnURL string, code string, state string) (string, error) {
+	parsedURL, err := url.Parse(returnURL)
+	if err != nil {
+		return "", err
+	}
+	query := parsedURL.Query()
+	query.Set("code", code)
+	if state != "" {
+		query.Set("state", state)
+	}
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String(), nil
+}
+
+func oauthSessionAppName(session sessions.Session) string {
+	if rawAppName := session.Get(oauthAppNameSessionKey); rawAppName != nil {
+		if value, ok := rawAppName.(string); ok {
+			return value
+		}
+	}
+	return ""
 }
 
 // handleOAuthBind handles binding OAuth account to existing user
@@ -326,7 +362,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		}
 
 		// Perform post-transaction tasks (logs, sidebar config, inviter rewards)
-		user.FinalizeOAuthUserCreation(inviterId)
+		user.FinalizeOAuthUserCreationWithDefaultTokenAppName(inviterId, oauthSessionAppName(session))
 	} else {
 		// Built-in provider: create user and update provider ID in a transaction
 		err := model.DB.Transaction(func(tx *gorm.DB) error {
@@ -355,7 +391,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		}
 
 		// Perform post-transaction tasks
-		user.FinalizeOAuthUserCreation(inviterId)
+		user.FinalizeOAuthUserCreationWithDefaultTokenAppName(inviterId, oauthSessionAppName(session))
 	}
 
 	return user, nil

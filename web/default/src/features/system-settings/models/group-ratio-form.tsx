@@ -36,6 +36,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import {
   Sheet,
   SheetContent,
@@ -45,7 +46,6 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import { GroupRatioVisualEditor } from './group-ratio-visual-editor'
 import { GroupSpecialUsableRulesEditor } from './group-special-usable-editor'
 
@@ -57,6 +57,7 @@ type GroupFormValues = {
   AutoGroups: string
   DefaultUseAutoGroup: boolean
   DefaultGeneratedTokenGroups: string
+  DefaultGeneratedTokenGroupsByApp: string
   GroupSpecialUsableGroup: string
 }
 
@@ -171,6 +172,33 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormDescription>
                     {t(
                       'Groups for tokens automatically generated after user creation. Comma-separated. Leave empty to use the auto-group switch behavior.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='DefaultGeneratedTokenGroupsByApp'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('App-specific default token groups')}
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={4}
+                      placeholder={
+                        '{\n  "Kaya": ["vip"],\n  "OtherApp": ["default", "pro"]\n}'
+                      }
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'JSON map of app name to generated token groups. Matched apps use these groups instead of the global default groups.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -338,6 +366,33 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormDescription>
                     {t(
                       'Groups for tokens automatically generated after user creation. Comma-separated. Leave empty to use the auto-group switch behavior.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='DefaultGeneratedTokenGroupsByApp'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('App-specific default token groups')}
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={6}
+                      placeholder={
+                        '{\n  "Kaya": ["vip"],\n  "OtherApp": ["default", "pro"]\n}'
+                      }
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'JSON map of app name to generated token groups. Matched apps use these groups instead of the global default groups.'
                     )}
                   </FormDescription>
                   <FormMessage />
