@@ -196,7 +196,7 @@ services:
     restart: always
     command:
       - --redis.addr=redis://redis:6379
-      - --redis.password=123456
+      - --redis.password=${REDIS_PASSWORD}
     depends_on:
       - redis
     networks:
