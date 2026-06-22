@@ -86,6 +86,7 @@ export default function SettingsSidebarModulesUser() {
         log: isSidebarModuleAllowed('console', 'log'),
         midjourney: isSidebarModuleAllowed('console', 'midjourney'),
         task: isSidebarModuleAllowed('console', 'task'),
+        generation_jobs: isSidebarModuleAllowed('console', 'generation_jobs'),
       };
     }
 
@@ -317,6 +318,11 @@ export default function SettingsSidebarModulesUser() {
           description: t('绘图任务记录'),
         },
         { key: 'task', title: t('任务日志'), description: t('系统任务记录') },
+        {
+          key: 'generation_jobs',
+          title: t('生图任务'),
+          description: t('异步生图和改图任务'),
+        },
       ],
     },
     {

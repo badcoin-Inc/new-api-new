@@ -1814,6 +1814,7 @@
     "Generate tokens from the Tokens page; you can scope them to specific models, groups, IPs, and rate-limits.": "在「令牌」页面生成 API Key，可以按模型、分组、IP、速率等维度精细化授权。",
     "Generated default token groups": "自动生成默认令牌的分组",
     "Generated image": "生成的图像",
+    "Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.": "生成的图片请尽快下载，有效期为 1 天，过期后将失效。",
     "Generating new codes will invalidate all existing backup codes.": "生成新代码将使所有现有备份代码失效。",
     "Generating...": "生成中...",
     "Generation quality preset": "生成质量预设",

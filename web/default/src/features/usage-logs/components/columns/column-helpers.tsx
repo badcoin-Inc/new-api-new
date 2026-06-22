@@ -20,8 +20,10 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Zap } from 'lucide-react'
+import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatTimestampToDate, formatTokens } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +34,12 @@ import { DataTableColumnHeader } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { formatDuration } from '../../lib/format'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
+import { useUsageLogsContext } from '../usage-logs-provider'
+
+interface UserColumnLog {
+  user_id: number
+  username?: string
+}
 
 /**
  * Cache tooltip component for token display
@@ -221,6 +229,59 @@ export function createChannelColumn<T>(config: {
   }
 }
 
+export function createUserColumn<T extends UserColumnLog>(config: {
+  headerLabel: string
+  fallbackToUserId?: boolean
+}): ColumnDef<T> {
+  const { headerLabel, fallbackToUserId = false } = config
+
+  return {
+    id: 'user',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title={headerLabel} />
+    ),
+    cell: function UserCell({ row }) {
+      const { sensitiveVisible, setSelectedUserId, setUserInfoDialogOpen } =
+        useUsageLogsContext()
+      const log = row.original
+      const displayName =
+        log.username || (fallbackToUserId ? String(log.user_id || '?') : '')
+
+      if (!displayName) return null
+
+      return (
+        <button
+          type='button'
+          className='flex items-center gap-1.5 text-left'
+          onClick={(e) => {
+            e.stopPropagation()
+            setSelectedUserId(log.user_id)
+            setUserInfoDialogOpen(true)
+          }}
+        >
+          <Avatar className='ring-border/60 size-6 ring-1'>
+            <AvatarFallback
+              className={cn(
+                'text-[11px] font-semibold',
+                !sensitiveVisible && 'bg-muted text-muted-foreground'
+              )}
+              style={
+                sensitiveVisible ? getUserAvatarStyle(displayName) : undefined
+              }
+            >
+              {sensitiveVisible ? getUserAvatarFallback(displayName) : '•'}
+            </AvatarFallback>
+          </Avatar>
+          <span className='text-muted-foreground truncate text-sm hover:underline'>
+            {sensitiveVisible ? displayName : '••••'}
+          </span>
+        </button>
+      )
+    },
+    meta: { label: headerLabel, mobileHidden: true },
+  }
+}
+
 /**
  * Create a fail reason column - text-xs truncate, hover underline, dialog
  */
@@ -246,16 +307,27 @@ export function createFailReasonColumn<T>(config: {
 
       return (
         <>
-          <button
-            type='button'
-            className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
-            onClick={() => setDialogOpen(true)}
-            title={cellTitle}
-          >
-            <span className='truncate leading-snug text-red-600 group-hover:underline dark:text-red-400'>
-              {failReason}
-            </span>
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type='button'
+                    className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+                    onClick={() => setDialogOpen(true)}
+                    title={cellTitle}
+                  />
+                }
+              >
+                  <span className='line-clamp-3 whitespace-pre-wrap break-words leading-snug text-red-600 group-hover:underline dark:text-red-400'>
+                    {failReason}
+                  </span>
+              </TooltipTrigger>
+              <TooltipContent className='max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap break-words text-xs'>
+                {failReason}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <FailReasonDialog
             failReason={failReason}
             open={dialogOpen}

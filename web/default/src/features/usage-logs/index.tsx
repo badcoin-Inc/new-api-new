@@ -49,7 +49,8 @@ const SECTION_META: Record<
   },
   drawing: {
     titleKey: 'Drawing Logs',
-    descriptionKey: 'View and manage your drawing logs',
+    descriptionKey:
+      'Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.',
   },
   task: {
     titleKey: 'Task Logs',
@@ -109,8 +110,7 @@ function UsageLogsContent() {
     [navigate]
   )
 
-  const pageMeta =
-    activeCategory === 'common' ? SECTION_META.common : SECTION_META.task
+  const pageMeta = SECTION_META[activeCategory]
   const showTaskSwitcher =
     activeCategory !== 'common' && visibleSections.length > 1
 

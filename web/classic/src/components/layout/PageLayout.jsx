@@ -24,7 +24,7 @@ import App from '../../App';
 import FooterBar from './Footer';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from '../common/ErrorBoundary';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +39,8 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
 import { normalizeLanguage } from '../../i18n/language';
+import { useActualTheme } from '../../context/Theme';
+import StarNestBackground from './StarNestBackground';
 const { Sider, Content, Header } = Layout;
 
 const PageLayout = () => {
@@ -49,6 +51,7 @@ const PageLayout = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { i18n } = useTranslation();
   const location = useLocation();
+  const actualTheme = useActualTheme();
 
   const cardProPages = [
     '/console/channel',
@@ -58,6 +61,7 @@ const PageLayout = () => {
     '/console/token',
     '/console/midjourney',
     '/console/task',
+    '/console/generation_jobs',
     '/console/models',
     '/pricing',
   ];
@@ -71,12 +75,69 @@ const PageLayout = () => {
 
   const isConsoleRoute = location.pathname.startsWith('/console');
   const showSider = isConsoleRoute && (!isMobile || drawerOpen);
+  const isNebulaMode = actualTheme === 'nebula';
+  const isNebulaHome = isNebulaMode && location.pathname === '/';
+  const isNebulaHeroRoute =
+    isNebulaMode && ['/', '/login', '/register'].includes(location.pathname);
+  const [hideNebulaHomeContent, setHideNebulaHomeContent] = useState(false);
+  const nebulaHomeIdleTimerRef = useRef(null);
+  const shouldStretchNebulaPanel = [
+    '/console',
+    '/console/personal',
+    '/console/deployment',
+    '/console/setting',
+  ].includes(location.pathname);
 
   useEffect(() => {
     if (isMobile && drawerOpen && collapsed) {
       setCollapsed(false);
     }
   }, [isMobile, drawerOpen, collapsed, setCollapsed]);
+
+  useEffect(() => {
+    if (!isNebulaHome && hideNebulaHomeContent) {
+      setHideNebulaHomeContent(false);
+    }
+  }, [isNebulaHome, hideNebulaHomeContent]);
+
+  useEffect(() => {
+    if (!isNebulaHome || isMobile) {
+      if (nebulaHomeIdleTimerRef.current) {
+        clearTimeout(nebulaHomeIdleTimerRef.current);
+        nebulaHomeIdleTimerRef.current = null;
+      }
+      setHideNebulaHomeContent(false);
+      return;
+    }
+
+    const resetNebulaHomeIdleTimer = () => {
+      setHideNebulaHomeContent(false);
+      if (nebulaHomeIdleTimerRef.current) {
+        clearTimeout(nebulaHomeIdleTimerRef.current);
+      }
+      nebulaHomeIdleTimerRef.current = setTimeout(() => {
+        setHideNebulaHomeContent(true);
+      }, 10000);
+    };
+
+    resetNebulaHomeIdleTimer();
+    window.addEventListener('mousemove', resetNebulaHomeIdleTimer);
+
+    return () => {
+      window.removeEventListener('mousemove', resetNebulaHomeIdleTimer);
+      if (nebulaHomeIdleTimerRef.current) {
+        clearTimeout(nebulaHomeIdleTimerRef.current);
+        nebulaHomeIdleTimerRef.current = null;
+      }
+    };
+  }, [isNebulaHome, isMobile]);
+
+  const nebulaHomeFadeClass =
+    isNebulaHome && hideNebulaHomeContent
+      ? 'nebula-home-content-fade-target nebula-home-content-hidden'
+      : isNebulaHome
+        ? 'nebula-home-content-fade-target'
+        : undefined;
 
   const loadUser = () => {
     let user = localStorage.getItem('user');
@@ -153,7 +214,14 @@ const PageLayout = () => {
         overflow: isMobile ? 'visible' : 'hidden',
       }}
     >
+      {isNebulaMode && (
+        <StarNestBackground
+          interactive={isNebulaHeroRoute && !isMobile}
+          forceLowPower={!isNebulaHeroRoute}
+        />
+      )}
       <Header
+        className={nebulaHomeFadeClass}
         style={{
           padding: 0,
           height: 'auto',
@@ -167,6 +235,7 @@ const PageLayout = () => {
         <HeaderBar
           onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
           drawerOpen={drawerOpen}
+          hideNebulaHomeContent={hideNebulaHomeContent}
         />
       </Header>
       <Layout
@@ -174,6 +243,7 @@ const PageLayout = () => {
           overflow: isMobile ? 'visible' : 'auto',
           display: 'flex',
           flexDirection: 'column',
+          marginTop: '64px',
         }}
       >
         {showSider && (
@@ -206,15 +276,24 @@ const PageLayout = () => {
             flex: '1 1 auto',
             display: 'flex',
             flexDirection: 'column',
+            minHeight: 0,
           }}
         >
           <Content
+            className={
+              isNebulaHome
+                ? nebulaHomeFadeClass
+                : isNebulaMode && isConsoleRoute
+                  ? `nebula-console-panel${shouldStretchNebulaPanel ? ' nebula-console-panel-stretch' : ''}`
+                  : undefined
+            }
             style={{
               flex: '1 0 auto',
-              overflowY: isMobile ? 'visible' : 'hidden',
+              overflowY: isMobile || isNebulaMode ? 'visible' : 'hidden',
               WebkitOverflowScrolling: 'touch',
               padding: shouldInnerPadding ? (isMobile ? '5px' : '24px') : '0',
               position: 'relative',
+              zIndex: isNebulaMode ? 1 : undefined,
             }}
           >
             <ErrorBoundary>
@@ -223,6 +302,11 @@ const PageLayout = () => {
           </Content>
           {!shouldHideFooter && (
             <Layout.Footer
+              className={
+                isNebulaMode
+                  ? `nebula-footer${isNebulaHome ? ` nebula-home-footer ${nebulaHomeFadeClass}` : ''}`
+                  : undefined
+              }
               style={{
                 flex: '0 0 auto',
                 width: '100%',

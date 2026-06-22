@@ -54,6 +54,7 @@ import {
   parseAuditLine,
   decodeBillingExprB64,
   getTieredBillingSummary,
+  getUsageLogTokens,
   hasAnyCacheTokens,
   isViolationFeeLog,
   getFirstResponseTimeColor,
@@ -167,7 +168,10 @@ function BillingBreakdown(props: {
       for (const entry of tieredSummary.priceEntries) {
         rows.push({
           label: t(entry.shortLabel),
-          value: `${fmtPrice(entry.price)}/M`,
+          value:
+            entry.unit === 'call'
+              ? fmtPrice(entry.price)
+              : `${fmtPrice(entry.price)}/M`,
         })
       }
     } else {
@@ -329,8 +333,7 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const { t } = useTranslation()
   const { log, other } = props
 
-  const promptTokens = log.prompt_tokens || 0
-  const completionTokens = log.completion_tokens || 0
+  const { promptTokens, completionTokens } = getUsageLogTokens(log, other)
   const cacheRead = other.cache_tokens || 0
   const cacheWrite = other.cache_creation_tokens || 0
   const cacheWrite5m = other.cache_creation_tokens_5m || 0

@@ -31,7 +31,8 @@ const USAGE_LOGS_SECTIONS = [
   {
     id: 'drawing',
     titleKey: 'Drawing Logs',
-    descriptionKey: 'View and manage your drawing logs',
+    descriptionKey:
+      'Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.',
     build: () => null, // Content is rendered directly in the page component
   },
   {

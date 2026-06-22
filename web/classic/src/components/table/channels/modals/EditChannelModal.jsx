@@ -96,6 +96,17 @@ const STATUS_CODE_MAPPING_EXAMPLE = {
   400: '500',
 };
 
+const ERROR_MESSAGE_MAPPING_EXAMPLE = {
+  default_message: '当前渠道暂时不可用，请稍后重试',
+  error_code_mapping: {
+    insufficient_user_quota: '额度不足，请充值后重试',
+  },
+  status_code_mapping: {
+    429: '请求过于频繁，请稍后再试',
+    500: '上游服务暂时不可用',
+  },
+};
+
 const REGION_EXAMPLE = {
   default: 'global',
   'gemini-1.5-pro-002': 'europe-west2',
@@ -180,6 +191,7 @@ const EditChannelModal = (props) => {
     model_mapping: '',
     param_override: '',
     status_code_mapping: '',
+    error_message_mapping: '',
     models: [],
     auto_ban: 1,
     test_model: '',
@@ -1026,6 +1038,7 @@ const EditChannelModal = (props) => {
         (data.model_mapping && data.model_mapping.trim()) ||
         (data.param_override && data.param_override.trim()) ||
         (data.status_code_mapping && data.status_code_mapping.trim()) ||
+        (data.error_message_mapping && data.error_message_mapping.trim()) ||
         (data.header_override && data.header_override.trim()) ||
         (data.tag && data.tag.trim()) ||
         (data.remark && data.remark.trim()) ||
@@ -1722,6 +1735,15 @@ const EditChannelModal = (props) => {
       showError(
         `${t('状态码复写包含无效的状态码')}: ${invalidStatusCodeEntries.join(', ')}`,
       );
+      return;
+    }
+
+    if (
+      localInputs.error_message_mapping &&
+      localInputs.error_message_mapping.trim() !== '' &&
+      !verifyJSON(localInputs.error_message_mapping)
+    ) {
+      showError(t('错误文案映射不是合法的 JSON'));
       return;
     }
 
@@ -2437,6 +2459,24 @@ const EditChannelModal = (props) => {
                     editorType='keyValue'
                     formApi={formApiRef.current}
                     extraText={t('键为原状态码，值为要复写的状态码，仅影响本地判断')}
+                  />
+                  <JSONEditor
+                    key={`error_message_mapping-${isEdit ? channelId : 'new'}`}
+                    field='error_message_mapping'
+                    label={t('错误文案映射')}
+                    placeholder={
+                      t('此项可选，用于覆盖该渠道的上游错误返回文案，优先级高于全局错误文案配置，例如：') +
+                      '\n' +
+                      JSON.stringify(ERROR_MESSAGE_MAPPING_EXAMPLE, null, 2)
+                    }
+                    value={inputs.error_message_mapping || ''}
+                    onChange={(value) =>
+                      handleInputChange('error_message_mapping', value)
+                    }
+                    template={ERROR_MESSAGE_MAPPING_EXAMPLE}
+                    templateLabel={t('填入模板')}
+                    formApi={formApiRef.current}
+                    extraText={t('default_message 为该渠道默认错误文案；error_code_mapping 用于按系统错误码定制文案；status_code_mapping 用于按 HTTP 状态码定制错误文案')}
                   />
                 </div>
 

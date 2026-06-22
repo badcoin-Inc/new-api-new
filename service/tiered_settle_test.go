@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/shopspring/decimal"
 )
 
@@ -83,6 +84,109 @@ func TestTryTieredSettleUsesFrozenRequestInput(t *testing.T) {
 	}
 	if result == nil || result.MatchedTier != "fast" {
 		t.Fatalf("matched tier = %v, want fast", result)
+	}
+}
+
+func TestTryTieredSettleMultipliesImageQuantity(t *testing.T) {
+	imageN := uint(2)
+	relayInfo := &relaycommon.RelayInfo{
+		TieredBillingSnapshot: &billingexpr.BillingSnapshot{
+			BillingMode:              "tiered_expr",
+			ExprString:               `tier("1k", 10000 + p * 0 + c * 0)`,
+			ExprHash:                 billingexpr.ExprHashString(`tier("1k", 10000 + p * 0 + c * 0)`),
+			GroupRatio:               0.6,
+			EstimatedQuotaAfterGroup: 3000,
+			QuotaPerUnit:             testQuotaPerUnit,
+		},
+		FinalPreConsumedQuota: 3000,
+		RelayFormat:           types.RelayFormatOpenAIImage,
+		Request: &dto.ImageRequest{
+			Model: "tiered-image-model",
+			N:     &imageN,
+		},
+	}
+
+	ok, quota, result := TryTieredSettle(relayInfo, billingexpr.TokenParams{})
+	if !ok {
+		t.Fatal("expected tiered settle to apply")
+	}
+	if quota != 6000 {
+		t.Fatalf("expected quota 6000, got %d", quota)
+	}
+	if result == nil || result.ActualQuotaAfterGroup != 6000 {
+		t.Fatalf("expected result quota 6000, got %#v", result)
+	}
+}
+
+func TestTryTieredSettleUsesActualImageQuantity(t *testing.T) {
+	imageN := uint(2)
+	relayInfo := &relaycommon.RelayInfo{
+		TieredBillingSnapshot: &billingexpr.BillingSnapshot{
+			BillingMode:              "tiered_expr",
+			ExprString:               `tier("1k", 10000 + p * 0 + c * 0)`,
+			ExprHash:                 billingexpr.ExprHashString(`tier("1k", 10000 + p * 0 + c * 0)`),
+			GroupRatio:               0.6,
+			EstimatedQuotaAfterGroup: 6000,
+			QuotaPerUnit:             testQuotaPerUnit,
+		},
+		FinalPreConsumedQuota: 6000,
+		RelayFormat:           types.RelayFormatOpenAIImage,
+		Request: &dto.ImageRequest{
+			Model: "tiered-image-model",
+			N:     &imageN,
+		},
+		PriceData: types.PriceData{
+			OtherRatios: map[string]float64{"n": 1},
+		},
+	}
+
+	ok, quota, result := TryTieredSettle(relayInfo, billingexpr.TokenParams{})
+	if !ok {
+		t.Fatal("expected tiered settle to apply")
+	}
+	if quota != 3000 {
+		t.Fatalf("expected quota 3000, got %d", quota)
+	}
+	if result == nil || result.ActualQuotaAfterGroup != 3000 {
+		t.Fatalf("expected result quota 3000, got %#v", result)
+	}
+}
+
+func TestTryTieredSettleScalesExplicitImageQuantityExpr(t *testing.T) {
+	imageN := uint(2)
+	exprStr := `tier("1k", param("n") * 10000)`
+	relayInfo := &relaycommon.RelayInfo{
+		TieredBillingSnapshot: &billingexpr.BillingSnapshot{
+			BillingMode:              "tiered_expr",
+			ExprString:               exprStr,
+			ExprHash:                 billingexpr.ExprHashString(exprStr),
+			GroupRatio:               0.6,
+			EstimatedQuotaAfterGroup: 6000,
+			QuotaPerUnit:             testQuotaPerUnit,
+		},
+		BillingRequestInput: &billingexpr.RequestInput{
+			Body: []byte(`{"n":2}`),
+		},
+		FinalPreConsumedQuota: 6000,
+		RelayFormat:           types.RelayFormatOpenAIImage,
+		Request: &dto.ImageRequest{
+			Model: "tiered-image-model",
+			N:     &imageN,
+		},
+		PriceData: types.PriceData{
+			OtherRatios: map[string]float64{"n": 1},
+		},
+	}
+
+	ok, quota, result := TryTieredSettle(relayInfo, billingexpr.TokenParams{})
+	if !ok {
+		t.Fatal("expected tiered settle to apply")
+	}
+	if quota != 3000 {
+		t.Fatalf("expected quota 3000, got %d", quota)
+	}
+	if result == nil || result.ActualQuotaAfterGroup != 3000 {
+		t.Fatalf("expected result quota 3000, got %#v", result)
 	}
 }
 

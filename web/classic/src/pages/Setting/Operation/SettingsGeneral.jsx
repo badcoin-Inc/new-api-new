@@ -35,30 +35,38 @@ import {
   showError,
   showSuccess,
   showWarning,
+  verifyJSON,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 
+const defaultInputs = {
+  TopUpLink: '',
+  'general_setting.docs_link': '',
+  'general_setting.quota_display_type': 'USD',
+  'general_setting.custom_currency_symbol': '¤',
+  'general_setting.custom_currency_exchange_rate': '',
+  QuotaPerUnit: '',
+  RetryTimes: '',
+  'error_setting.default_message': '请求处理失败',
+  'error_setting.status_code_mapping': '{}',
+  'system_error_setting.default_message': '请求失败，请检查配置或稍后再试',
+  'system_error_setting.error_code_mapping': '{}',
+  'system_error_setting.status_code_mapping': '{}',
+  USDExchangeRate: '',
+  DisplayTokenStatEnabled: false,
+  DefaultCollapseSidebar: false,
+  DemoSiteEnabled: false,
+  SelfUseModeEnabled: false,
+  'token_setting.max_user_tokens': 1000,
+};
+
 export default function GeneralSettings(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [showQuotaWarning, setShowQuotaWarning] = useState(false);
-  const [inputs, setInputs] = useState({
-    TopUpLink: '',
-    'general_setting.docs_link': '',
-    'general_setting.quota_display_type': 'USD',
-    'general_setting.custom_currency_symbol': '¤',
-    'general_setting.custom_currency_exchange_rate': '',
-    QuotaPerUnit: '',
-    RetryTimes: '',
-    USDExchangeRate: '',
-    DisplayTokenStatEnabled: false,
-    DefaultCollapseSidebar: false,
-    DemoSiteEnabled: false,
-    SelfUseModeEnabled: false,
-    'token_setting.max_user_tokens': 1000,
-  });
+  const [inputs, setInputs] = useState(defaultInputs);
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
 
@@ -69,6 +77,21 @@ export default function GeneralSettings(props) {
   }
 
   function onSubmit() {
+    const statusCodeMapping = inputs['error_setting.status_code_mapping'];
+    if (statusCodeMapping && !verifyJSON(statusCodeMapping)) {
+      return showError(t('错误状态码文案映射不是合法的 JSON'));
+    }
+
+    const systemErrorCodeMapping = inputs['system_error_setting.error_code_mapping'];
+    if (systemErrorCodeMapping && !verifyJSON(systemErrorCodeMapping)) {
+      return showError(t('系统错误码文案映射不是合法的 JSON'));
+    }
+
+    const systemStatusCodeMapping = inputs['system_error_setting.status_code_mapping'];
+    if (systemStatusCodeMapping && !verifyJSON(systemStatusCodeMapping)) {
+      return showError(t('系统错误状态码文案映射不是合法的 JSON'));
+    }
+
     const updateArray = compareObjects(inputs, inputsRow);
     if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
     const requestQueue = updateArray.map((item) => {
@@ -199,9 +222,9 @@ export default function GeneralSettings(props) {
   }, [quotaDisplayType, combinedRate, inputs, t]);
 
   useEffect(() => {
-    const currentInputs = {};
+    const currentInputs = { ...defaultInputs };
     for (let key in props.options) {
-      if (Object.keys(inputs).includes(key)) {
+      if (Object.keys(defaultInputs).includes(key)) {
         currentInputs[key] = props.options[key];
       }
     }
@@ -274,6 +297,28 @@ export default function GeneralSettings(props) {
                 />
               </Col>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Input
+                  field={'error_setting.default_message'}
+                  label={t('上游错误默认文案')}
+                  initValue={'请求处理失败'}
+                  placeholder={t('请求处理失败')}
+                  extraText={t('上游接口错误未命中状态码映射时返回给用户的文案')}
+                  onChange={handleFieldChange('error_setting.default_message')}
+                  showClear
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Input
+                  field={'system_error_setting.default_message'}
+                  label={t('系统错误默认文案')}
+                  initValue={'请求失败，请检查配置或稍后再试'}
+                  placeholder={t('请求失败，请检查配置或稍后再试')}
+                  extraText={t('系统自身错误未命中错误码或状态码映射时返回给用户的文案')}
+                  onChange={handleFieldChange('system_error_setting.default_message')}
+                  showClear
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.Select
                   field='general_setting.quota_display_type'
                   label={t('额度展示类型')}
@@ -297,6 +342,36 @@ export default function GeneralSettings(props) {
                     {t('自定义货币')}
                   </Form.Select.Option>
                 </Form.Select>
+              </Col>
+              <Col span={24}>
+                <Form.TextArea
+                  field={'error_setting.status_code_mapping'}
+                  label={t('上游错误状态码文案映射')}
+                  placeholder={'{"429":"请求过于频繁，请稍后再试","500":"服务暂时不可用"}'}
+                  autosize={{ minRows: 3, maxRows: 8 }}
+                  extraText={t('JSON 对象，key 为上游 HTTP 状态码，value 为返回给用户的错误文案')}
+                  onChange={handleFieldChange('error_setting.status_code_mapping')}
+                />
+              </Col>
+              <Col span={24}>
+                <Form.TextArea
+                  field={'system_error_setting.error_code_mapping'}
+                  label={t('系统错误码文案映射')}
+                  placeholder={'{"model_price_error":"模型计费配置错误，请联系管理员","insufficient_user_quota":"额度不足，请充值后重试"}'}
+                  autosize={{ minRows: 3, maxRows: 8 }}
+                  extraText={t('JSON 对象，key 为系统错误码，value 为返回给用户的错误文案，优先级高于系统状态码映射')}
+                  onChange={handleFieldChange('system_error_setting.error_code_mapping')}
+                />
+              </Col>
+              <Col span={24}>
+                <Form.TextArea
+                  field={'system_error_setting.status_code_mapping'}
+                  label={t('系统错误状态码文案映射')}
+                  placeholder={'{"400":"请求参数错误","500":"系统配置错误，请联系管理员"}'}
+                  autosize={{ minRows: 3, maxRows: 8 }}
+                  extraText={t('JSON 对象，key 为系统返回的 HTTP 状态码，value 为返回给用户的错误文案')}
+                  onChange={handleFieldChange('system_error_setting.status_code_mapping')}
+                />
               </Col>
               {quotaDisplayType !== 'USD' && (
                 <Col xs={24} sm={12} md={8} lg={8} xl={8}>

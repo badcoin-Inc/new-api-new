@@ -50,8 +50,9 @@ export default function SettingsSidebarModulesAdmin(props) {
       detail: true,
       token: true,
       log: true,
-      midjourney: true,
+      midjourney: false,
       task: true,
+      generation_jobs: true,
     },
     personal: {
       enabled: true,
@@ -111,8 +112,9 @@ export default function SettingsSidebarModulesAdmin(props) {
         detail: true,
         token: true,
         log: true,
-        midjourney: true,
+        midjourney: false,
         task: true,
+        generation_jobs: true,
       },
       personal: {
         enabled: true,
@@ -184,8 +186,9 @@ export default function SettingsSidebarModulesAdmin(props) {
             detail: true,
             token: true,
             log: true,
-            midjourney: true,
+            midjourney: false,
             task: true,
+            generation_jobs: true,
           },
           personal: { enabled: true, topup: true, personal: true },
           admin: {
@@ -233,6 +236,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           description: t('绘图任务记录'),
         },
         { key: 'task', title: t('任务日志'), description: t('系统任务记录') },
+        {
+          key: 'generation_jobs',
+          title: t('生图任务'),
+          description: t('异步生图和改图任务'),
+        },
       ],
     },
     {

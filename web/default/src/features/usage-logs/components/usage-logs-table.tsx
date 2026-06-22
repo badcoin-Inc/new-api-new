@@ -46,6 +46,9 @@ import { TaskLogsFilterBar } from './task-logs-filter-bar'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
+const DRAWING_DOWNLOAD_NOTICE =
+  'Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.'
+
 const logTypeRowTint: Record<number, string> = {
   [LOG_TYPE_ENUM.ERROR]: 'bg-rose-50/40 dark:bg-rose-950/20',
   [LOG_TYPE_ENUM.REFUND]: 'bg-blue-50/30 dark:bg-blue-950/15',
@@ -174,11 +177,18 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       tableClassName='max-h-[calc(100dvh-13rem)] overflow-auto sm:max-h-[calc(100dvh-14rem)]'
       tableHeaderClassName='bg-muted/30 sticky top-0 z-10'
       toolbar={
-        isCommon ? (
-          <CommonLogsFilterBar table={table} />
-        ) : (
-          <TaskLogsFilterBar table={table} logCategory={logCategory} />
-        )
+        <>
+          {logCategory === 'drawing' && (
+            <div className='border-border/70 bg-muted/35 text-muted-foreground rounded-lg border px-3 py-2 text-sm'>
+              {t(DRAWING_DOWNLOAD_NOTICE)}
+            </div>
+          )}
+          {isCommon ? (
+            <CommonLogsFilterBar table={table} />
+          ) : (
+            <TaskLogsFilterBar table={table} logCategory={logCategory} />
+          )}
+        </>
       }
       renderRow={(row) => {
         const logType = (row.original as Record<string, unknown>).type as

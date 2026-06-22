@@ -84,6 +84,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	statusCodeMappingStr := c.GetString("status_code_mapping")
+	errorMessageMappingStr := c.GetString("error_message_mapping")
 
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
@@ -98,7 +99,11 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 				// replicate channel returns 201 Created when using Prefer: wait, treat it as success.
 				httpResp.StatusCode = http.StatusOK
 			} else {
+				if retryAfter := httpResp.Header.Get("Retry-After"); retryAfter != "" {
+					c.Header("Retry-After", retryAfter)
+				}
 				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
+				service.ApplyErrorMessage(newAPIError, errorMessageMappingStr)
 				// reset status code 重置状态码
 				service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 				return newAPIError
@@ -108,6 +113,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
 	if newAPIError != nil {
+		service.ApplyErrorMessage(newAPIError, errorMessageMappingStr)
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
@@ -126,6 +132,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		if _, hasN := info.PriceData.OtherRatios["n"]; !hasN {
 			info.PriceData.AddOtherRatio("n", float64(imageN))
 		}
+	}
+	if actualN, hasN := info.PriceData.OtherRatios["n"]; hasN && actualN > 0 {
+		imageN = uint(actualN)
 	}
 
 	if usage.(*dto.Usage).TotalTokens == 0 {

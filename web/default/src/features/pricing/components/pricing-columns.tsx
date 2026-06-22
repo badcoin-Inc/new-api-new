@@ -202,16 +202,19 @@ export function usePricingColumns(
                       <span className='text-muted-foreground/40 mx-1'>/</span>
                     )}
                     {stripTrailingZeros(entry.formatted)}
+                    <span className='text-muted-foreground/50 ml-0.5 text-[10px]'>
+                      /{entry.unit === 'call' ? t('request') : tokenUnitLabel}
+                    </span>
                   </span>
                 ))}
               </span>
-              <div className='text-muted-foreground/50 text-[10px]'>
-                / {tokenUnitLabel} tokens
-                {dynamicSummary.tierCount > 1 &&
-                  ` · ${t('{{count}} tiers', {
+              {dynamicSummary.tierCount > 1 && (
+                <div className='text-muted-foreground/50 text-[10px]'>
+                  {t('{{count}} tiers', {
                     count: dynamicSummary.tierCount,
-                  })}`}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           )
         }

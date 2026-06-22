@@ -61,3 +61,35 @@ func TestBuildBillingExprRequestInputFromRequest(t *testing.T) {
 	require.Equal(t, "user", gjson.GetBytes(input.Body, "messages.0.role").String())
 	require.Equal(t, float64(3000), gjson.GetBytes(input.Body, "max_tokens").Float())
 }
+
+func TestBuildBillingExprRequestInputFromImageRequestAddsBillingSize(t *testing.T) {
+	tests := []struct {
+		name string
+		size string
+		want string
+	}{
+		{name: "alias 1k", size: "1k", want: "1K"},
+		{name: "alias 2k", size: "2K", want: "2K"},
+		{name: "alias 4k", size: "4k", want: "4K"},
+		{name: "max side 1024", size: "1024x768", want: "1K"},
+		{name: "max side 2048", size: "2048x1152", want: "2K"},
+		{name: "over 2048", size: "3840x2160", want: "4K"},
+		{name: "invalid defaults 2k", size: "bad-size", want: "2K"},
+		{name: "empty defaults 2k", size: "", want: "2K"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := &dto.ImageRequest{
+				Model:  "gpt-image-2",
+				Prompt: "draw a cat",
+				Size:   tt.size,
+			}
+
+			input, err := BuildBillingExprRequestInputFromRequest(request, nil)
+			require.NoError(t, err)
+			require.Equal(t, tt.size, gjson.GetBytes(input.Body, "size").String())
+			require.Equal(t, tt.want, gjson.GetBytes(input.Body, "billing_size").String())
+		})
+	}
+}

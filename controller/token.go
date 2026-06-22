@@ -34,12 +34,27 @@ func buildMaskedTokenResponses(tokens []*model.Token) []*model.Token {
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
 	pageInfo := common.GetPageQuery(c)
-	tokens, err := model.GetAllUserTokens(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	group := ""
+	if c.Query("generation_job") == "true" {
+		group = strings.TrimSpace(common.GetEnvOrDefaultString("GENERATION_JOB_TOKEN_GROUP", ""))
+	}
+
+	var (
+		tokens []*model.Token
+		total  int64
+		err    error
+	)
+	if group == "" {
+		tokens, err = model.GetAllUserTokens(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		total, _ = model.CountUserTokens(userId)
+	} else {
+		tokens, err = model.GetUserTokensByGroup(userId, group, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		total, _ = model.CountUserTokensByGroup(userId, group)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	total, _ := model.CountUserTokens(userId)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)

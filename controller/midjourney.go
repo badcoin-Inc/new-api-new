@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -267,6 +268,7 @@ func GetAllMidjourney(c *gin.Context) {
 
 	items := model.GetAllTasks(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
 	total := model.CountAllTasks(queryParams)
+	fillMidjourneyUsernames(items)
 
 	if setting.MjForwardUrlEnabled {
 		for i, midjourney := range items {
@@ -277,6 +279,27 @@ func GetAllMidjourney(c *gin.Context) {
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(items)
 	common.ApiSuccess(c, pageInfo)
+}
+
+func fillMidjourneyUsernames(items []*model.Midjourney) {
+	userIds := types.NewSet[int]()
+	for _, item := range items {
+		userIds.Add(item.UserId)
+	}
+
+	userIdMap := make(map[int]*model.UserBase)
+	for _, userId := range userIds.Items() {
+		cacheUser, err := model.GetUserCache(userId)
+		if err == nil {
+			userIdMap[userId] = cacheUser
+		}
+	}
+
+	for _, item := range items {
+		if user, ok := userIdMap[item.UserId]; ok {
+			item.Username = user.Username
+		}
+	}
 }
 
 func GetUserMidjourney(c *gin.Context) {

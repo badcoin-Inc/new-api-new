@@ -72,6 +72,25 @@ func SetRelayRouter(router *gin.Engine) {
 	relayV1Router.Use(middleware.TokenAuth())
 	relayV1Router.Use(middleware.ModelRequestRateLimit())
 	{
+		generationJobRouter := relayV1Router.Group("/images/generations/jobs")
+		{
+			generationJobRouter.GET("", controller.GetUserGenerationJobs)
+			generationJobRouter.GET("/:id", controller.GetGenerationJob)
+			generationJobRouter.DELETE("/:id", controller.CancelGenerationJob)
+			generationJobSubmitRouter := generationJobRouter.Group("")
+			generationJobSubmitRouter.Use(middleware.Distribute())
+			generationJobSubmitRouter.POST("", controller.CreateGenerationJob)
+		}
+		generationEditJobRouter := relayV1Router.Group("/images/edits/jobs")
+		{
+			generationEditJobRouter.GET("", controller.GetUserGenerationJobs)
+			generationEditJobRouter.GET("/:id", controller.GetGenerationJob)
+			generationEditJobRouter.DELETE("/:id", controller.CancelGenerationJob)
+			generationEditJobSubmitRouter := generationEditJobRouter.Group("")
+			generationEditJobSubmitRouter.Use(middleware.Distribute())
+			generationEditJobSubmitRouter.POST("", controller.CreateGenerationEditJob)
+		}
+
 		// WebSocket 路由（统一到 Relay）
 		wsRouter := relayV1Router.Group("")
 		wsRouter.Use(middleware.Distribute())

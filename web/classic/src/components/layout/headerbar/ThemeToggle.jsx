@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useMemo } from 'react';
 import { Button, Dropdown } from '@douyinfe/semi-ui';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, Sparkles } from 'lucide-react';
 import { useActualTheme } from '../../../context/Theme';
 
 const ThemeToggle = ({ theme, onThemeToggle, t }) => {
@@ -40,6 +40,13 @@ const ThemeToggle = ({ theme, onThemeToggle, t }) => {
         buttonIcon: <Moon size={18} />,
         label: t('深色模式'),
         description: t('始终使用深色主题'),
+      },
+      {
+        key: 'nebula',
+        icon: <Sparkles size={18} />,
+        buttonIcon: <Sparkles size={18} />,
+        label: t('星云模式'),
+        description: t('使用星云动态背景'),
       },
       {
         key: 'auto',

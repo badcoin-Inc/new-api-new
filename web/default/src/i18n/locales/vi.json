@@ -1814,6 +1814,7 @@
     "Generate tokens from the Tokens page; you can scope them to specific models, groups, IPs, and rate-limits.": "Tạo token tại trang Tokens; bạn có thể giới hạn theo model, nhóm, IP và rate-limit.",
     "Generated default token groups": "Nhóm token mặc định được tạo",
     "Generated image": "Ảnh được tạo",
+    "Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.": "Vui lòng tải xuống hình ảnh đã tạo sớm nhất có thể. Hình ảnh có hiệu lực trong 1 ngày và sẽ hết hạn sau đó.",
     "Generating new codes will invalidate all existing backup codes.": "Tạo mã mới sẽ vô hiệu hóa tất cả các mã dự phòng hiện có.",
     "Generating...": "Đang tạo...",
     "Generation quality preset": "Mức chất lượng sinh",

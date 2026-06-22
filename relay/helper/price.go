@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
@@ -262,6 +263,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 	if err != nil {
 		return types.PriceData{}, fmt.Errorf("model %s tiered expr run failed: %w", info.OriginModelName, err)
 	}
+	rawCost *= tieredRequestQuantityMultiplier(info, exprStr)
 
 	// Expression coefficients are $/1M tokens prices; convert to quota the same way per-call billing does.
 	quotaBeforeGroup := rawCost / 1_000_000 * common.QuotaPerUnit
@@ -294,9 +296,11 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 	info.BillingRequestInput = &requestInput
 
 	priceData := types.PriceData{
-		FreeModel:         freeModel,
-		GroupRatioInfo:    groupRatioInfo,
-		QuotaToPreConsume: preConsumedQuota,
+		FreeModel:             freeModel,
+		GroupRatioInfo:        groupRatioInfo,
+		QuotaToPreConsume:     preConsumedQuota,
+		TieredBillingSnapshot: snapshot,
+		BillingRequestInput:   &requestInput,
 	}
 
 	if common.DebugEnabled {
@@ -305,4 +309,24 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 
 	info.PriceData = priceData
 	return priceData, nil
+}
+
+func tieredRequestQuantityMultiplier(info *relaycommon.RelayInfo, exprStr string) float64 {
+	if info == nil || info.RelayFormat != types.RelayFormatOpenAIImage {
+		return 1
+	}
+	if tieredExprHandlesImageQuantity(exprStr) {
+		return 1
+	}
+	switch request := info.Request.(type) {
+	case *dto.ImageRequest:
+		if request.N != nil && *request.N > 0 {
+			return float64(*request.N)
+		}
+	}
+	return 1
+}
+
+func tieredExprHandlesImageQuantity(exprStr string) bool {
+	return strings.Contains(exprStr, `param("n")`) || strings.Contains(exprStr, `param('n')`)
 }

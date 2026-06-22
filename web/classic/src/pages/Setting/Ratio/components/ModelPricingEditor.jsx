@@ -156,6 +156,7 @@ export default function ModelPricingEditor({
         render: (text, record) => (
           <Space>
             <Button
+              className={record.name === selectedModelName ? 'model-pricing-model-button-selected' : undefined}
               theme='borderless'
               type='tertiary'
               onClick={() => setSelectedModelName(record.name)}

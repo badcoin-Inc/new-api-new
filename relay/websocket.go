@@ -25,6 +25,7 @@ func WssHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.
 	//requestBody = bytes.NewBuffer(firstWssRequest.([]byte))
 
 	statusCodeMappingStr := c.GetString("status_code_mapping")
+	errorMessageMappingStr := c.GetString("error_message_mapping")
 	resp, err := adaptor.DoRequest(c, info, nil)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeDoRequestFailed)
@@ -37,6 +38,7 @@ func WssHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.
 
 	usage, newAPIError := adaptor.DoResponse(c, nil, info)
 	if newAPIError != nil {
+		service.ApplyErrorMessage(newAPIError, errorMessageMappingStr)
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError

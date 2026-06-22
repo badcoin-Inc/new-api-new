@@ -100,6 +100,7 @@ import {
 } from '@/features/pricing/lib/tier-expr'
 
 const PRICE_SUFFIX = '$/1M tokens'
+const FIXED_PRICE_SUFFIX = '$/call'
 const CACHE_PRICE_VARS = BILLING_EXTRA_VARS.filter(
   (variable) => variable.group === 'cache'
 )
@@ -317,6 +318,14 @@ function unitCostToPrice(uc: number | string): number {
 
 function priceToUnitCost(price: number | string): number {
   return Number(price) || 0
+}
+
+function fixedUnitCostToPrice(uc: number | string): number {
+  return (Number(uc) || 0) / 1_000_000
+}
+
+function priceToFixedUnitCost(price: number | string): number {
+  return (Number(price) || 0) * 1_000_000
 }
 
 function formatTokenHint(n: number | string | null | undefined): string {
@@ -587,6 +596,7 @@ function VisualTierCard({
 
   const inputUnitPrice = unitCostToPrice(tier.input_unit_cost)
   const outputUnitPrice = unitCostToPrice(tier.output_unit_cost)
+  const fixedUnitPrice = fixedUnitCostToPrice(tier.fixed_unit_cost)
   const hasMediaPricing = MEDIA_PRICE_VARS.some((variable) => {
     const fieldKey = variable.tierField as keyof VisualTier
     return unitCostToPrice((tier[fieldKey] as number | undefined) ?? 0) > 0
@@ -675,6 +685,23 @@ function VisualTierCard({
       </div>
 
       <div className='space-y-2'>
+        <div className='flex items-center justify-between gap-3'>
+          <Label className='text-sm font-semibold'>{t('Fixed price')}</Label>
+          <span className='bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs'>
+            {FIXED_PRICE_SUFFIX}
+          </span>
+        </div>
+
+        <div className='flex flex-wrap gap-x-4 gap-y-2'>
+          <PriceField
+            label={t('Per-call')}
+            value={fixedUnitPrice}
+            onChange={(value) =>
+              handlePriceChange('fixed_unit_cost', priceToFixedUnitCost(value))
+            }
+          />
+        </div>
+
         <div className='flex items-center justify-between gap-3'>
           <Label className='text-sm font-semibold'>{t('Token prices')}</Label>
           <span className='bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs'>
@@ -801,6 +828,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
       normalizeVisualTier({
         label: `tier_${tiers.length + 1}`,
         conditions: [],
+        fixed_unit_cost: 0,
         input_unit_cost: 0,
         output_unit_cost: 0,
       })

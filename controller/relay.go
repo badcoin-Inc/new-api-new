@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,7 +89,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		if newAPIError != nil {
-			logger.LogError(c, fmt.Sprintf("relay error: %s", newAPIError.Error()))
+			logger.LogError(c, fmt.Sprintf("relay error: code=%s | %s", newAPIError.GetErrorCode(), newAPIError.Error()))
+			service.ApplySystemErrorMessage(newAPIError, c.GetString("error_message_mapping"))
+			if newAPIError.GetErrorCode() == types.ErrorCodeGetChannelFailed {
+				newAPIError.SetMessage(service.AppendGetChannelFailedModelMessage(newAPIError.Error(), common.GetContextKeyString(c, constant.ContextKeyOriginalModel)))
+			}
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
@@ -209,16 +214,32 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		c.Request.Body = io.NopCloser(bodyStorage)
 
-		switch relayFormat {
-		case types.RelayFormatOpenAIRealtime:
-			newAPIError = relay.WssHelper(c, relayInfo)
-		case types.RelayFormatClaude:
-			newAPIError = relay.ClaudeHelper(c, relayInfo)
-		case types.RelayFormatGemini:
-			newAPIError = geminiRelayHandler(c, relayInfo)
-		default:
-			newAPIError = relayHandler(c, relayInfo)
+		var sub2APIRelease func()
+		if relayInfo.RelayMode == relayconstant.RelayModeImagesGenerations || relayInfo.RelayMode == relayconstant.RelayModeImagesEdits {
+			var acquired bool
+			sub2APIRelease, acquired = service.AcquireSub2APISyncSlot()
+			if !acquired {
+				c.Header("Retry-After", strconv.Itoa(common.GetEnvOrDefault("SUB2API_SYNC_RETRY_AFTER_SECONDS", 5)))
+				newAPIError = types.NewErrorWithStatusCode(fmt.Errorf("image concurrency limit reached"), types.ErrorCodeBadResponseStatusCode, http.StatusTooManyRequests, types.ErrOptionWithSkipRetry())
+				break
+			}
 		}
+
+		func() {
+			if sub2APIRelease != nil {
+				defer sub2APIRelease()
+			}
+			switch relayFormat {
+			case types.RelayFormatOpenAIRealtime:
+				newAPIError = relay.WssHelper(c, relayInfo)
+			case types.RelayFormatClaude:
+				newAPIError = relay.ClaudeHelper(c, relayInfo)
+			case types.RelayFormatGemini:
+				newAPIError = geminiRelayHandler(c, relayInfo)
+			default:
+				newAPIError = relayHandler(c, relayInfo)
+			}
+		}()
 
 		if newAPIError == nil {
 			relayInfo.LastError = nil
@@ -546,7 +567,18 @@ func RelayTask(c *gin.Context) {
 		}
 		c.Request.Body = io.NopCloser(bodyStorage)
 
-		result, taskErr = relay.RelayTaskSubmit(c, relayInfo)
+		sub2APIRelease, acquired := service.AcquireSub2APIJobSlot()
+		if !acquired {
+			taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("sub2api job concurrency limit reached"), "no_capacity", http.StatusTooManyRequests)
+			taskErr.RetryAfterSeconds = common.GetEnvOrDefault("SUB2API_JOB_RETRY_AFTER_SECONDS", 5)
+			break
+		}
+		func() {
+			if sub2APIRelease != nil {
+				defer sub2APIRelease()
+			}
+			result, taskErr = relay.RelayTaskSubmit(c, relayInfo)
+		}()
 		if taskErr == nil {
 			break
 		}
@@ -606,6 +638,9 @@ func RelayTask(c *gin.Context) {
 func respondTaskError(c *gin.Context, taskErr *dto.TaskError) {
 	if taskErr.StatusCode == http.StatusTooManyRequests {
 		taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
+	}
+	if taskErr.RetryAfterSeconds > 0 {
+		c.Header("Retry-After", strconv.Itoa(taskErr.RetryAfterSeconds))
 	}
 	c.JSON(taskErr.StatusCode, taskErr)
 }

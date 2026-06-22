@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel/openrouter"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 
@@ -573,6 +574,12 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
+	if info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits {
+		var imageResp dto.ImageResponse
+		if err := common.Unmarshal(responseBody, &imageResp); err == nil && len(imageResp.Data) > 0 {
+			info.PriceData.AddOtherRatio("n", float64(len(imageResp.Data)))
+		}
+	}
 
 	// Once we've written to the client, we should not return errors anymore
 	// because the upstream has already consumed resources and returned content

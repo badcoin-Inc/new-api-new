@@ -115,6 +115,9 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		}
 		payload.Data = append(payload.Data, imageData)
 	}
+	if len(payload.Data) > 0 {
+		info.PriceData.AddOtherRatio("n", float64(len(payload.Data)))
+	}
 
 	jsonResp, err := common.Marshal(payload)
 	if err != nil {

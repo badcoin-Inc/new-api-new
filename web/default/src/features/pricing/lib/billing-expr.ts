@@ -142,6 +142,15 @@ export const BILLING_PRICING_VARS: BillingVar[] = BILLING_VARS.filter(
   (v) => !v.isConditionOnly
 )
 
+export const BILLING_FIXED_PRICE_VAR: BillingVar = {
+  key: 'fixed',
+  field: 'fixedPrice',
+  tierField: 'fixed_unit_cost',
+  label: 'Fixed price',
+  shortLabel: 'Per-call',
+  side: 'input',
+}
+
 /** Vars valid in tier conditions (`p`, `c`, `len`) */
 export const BILLING_CONDITION_VARS: string[] = BILLING_VARS.filter(
   (v) => v.isBase || v.isConditionOnly
@@ -259,6 +268,11 @@ function parseTierBody(bodyStr: string): Record<string, number> {
     if (!(m[1] in coeffs)) coeffs[m[1]] = Number(m[2])
   }
   const tier: Record<string, number> = {}
+  tier.fixedPrice = bodyStr
+    .split(/\s*\+\s*/)
+    .map((part) => part.trim())
+    .filter((part) => NUMERIC_LITERAL_REGEX.test(part))
+    .reduce((sum, part) => sum + Number(part), 0)
   for (const [varName, field] of Object.entries(BILLING_VAR_KEY_TO_FIELD)) {
     tier[field] = coeffs[varName] || 0
   }

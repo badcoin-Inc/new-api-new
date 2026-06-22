@@ -200,7 +200,10 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     (newTheme) => {
       if (
         !newTheme ||
-        (newTheme !== 'light' && newTheme !== 'dark' && newTheme !== 'auto')
+        (newTheme !== 'light' &&
+          newTheme !== 'dark' &&
+          newTheme !== 'auto' &&
+          newTheme !== 'nebula')
       ) {
         return;
       }

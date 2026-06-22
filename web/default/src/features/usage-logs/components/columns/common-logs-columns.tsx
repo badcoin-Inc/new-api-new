@@ -20,7 +20,6 @@ import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { CircleAlert, Sparkles, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import {
   formatUseTime,
@@ -28,7 +27,6 @@ import {
   formatTimestampToDate,
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Tooltip,
   TooltipContent,
@@ -43,6 +41,7 @@ import {
   getFirstResponseTimeColor,
   getResponseTimeColor,
   getTieredBillingSummary,
+  getUsageLogTokens,
   hasAnyCacheTokens,
   parseLogOther,
   isViolationFeeLog,
@@ -57,6 +56,7 @@ import type { LogOtherData } from '../../types'
 import { DetailsDialog } from '../dialogs/details-dialog'
 import { ModelBadge } from '../model-badge'
 import { useUsageLogsContext } from '../usage-logs-provider'
+import { createUserColumn } from './column-helpers'
 
 interface DetailSegment {
   text: string
@@ -137,10 +137,18 @@ function buildDetailSegments(
       const baseEntries = tieredSummary.priceEntries
         .filter((entry) => ['inputPrice', 'outputPrice'].includes(entry.field))
         .map((entry) => formatPriceCompact(entry.price))
+      const fixedEntry = tieredSummary.priceEntries.find(
+        (entry) => entry.field === 'fixedPrice'
+      )
       if (baseEntries.length > 0) {
         const tierLabel = tieredSummary.tier.label || t('Default')
         segments.push({
           text: `${tierLabel} · ${formatPriceList(baseEntries, true)}`,
+        })
+      } else if (fixedEntry) {
+        const tierLabel = tieredSummary.tier.label || t('Default')
+        segments.push({
+          text: `${tierLabel} · ${t(fixedEntry.shortLabel)} ${formatPriceCompact(fixedEntry.price)}`,
         })
       }
 
@@ -164,6 +172,7 @@ function buildDetailSegments(
         .filter(
           (entry) =>
             ![
+              'fixedPrice',
               'inputPrice',
               'outputPrice',
               'cacheReadPrice',
@@ -171,7 +180,13 @@ function buildDetailSegments(
               'cacheCreate1hPrice',
             ].includes(entry.field)
         )
-        .map((entry) => `${t(entry.shortLabel)} ${formatPrice(entry.price)}`)
+        .map((entry) => {
+          const formatted =
+            entry.unit === 'call'
+              ? formatPriceCompact(entry.price)
+              : formatPrice(entry.price)
+          return `${t(entry.shortLabel)} ${formatted}`
+        })
       if (otherEntries.length > 0) {
         segments.push({
           text: otherEntries.join(' · '),
@@ -394,51 +409,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         },
         meta: { label: t('Channel'), mobileHidden: true },
       },
-      {
-        id: 'user',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('User')} />
-        ),
-        cell: function UserCell({ row }) {
-          const { sensitiveVisible, setSelectedUserId, setUserInfoDialogOpen } =
-            useUsageLogsContext()
-          const log = row.original
-
-          if (!log.username) return null
-
-          return (
-            <button
-              type='button'
-              className='flex items-center gap-1.5 text-left'
-              onClick={(e) => {
-                e.stopPropagation()
-                setSelectedUserId(log.user_id)
-                setUserInfoDialogOpen(true)
-              }}
-            >
-              <Avatar className='ring-border/60 size-6 ring-1'>
-                <AvatarFallback
-                  className={cn(
-                    'text-[11px] font-semibold',
-                    !sensitiveVisible && 'bg-muted text-muted-foreground'
-                  )}
-                  style={
-                    sensitiveVisible
-                      ? getUserAvatarStyle(log.username)
-                      : undefined
-                  }
-                >
-                  {sensitiveVisible ? getUserAvatarFallback(log.username) : '•'}
-                </AvatarFallback>
-              </Avatar>
-              <span className='text-muted-foreground truncate text-sm hover:underline'>
-                {sensitiveVisible ? log.username : '••••'}
-              </span>
-            </button>
-          )
-        },
-        meta: { label: t('User'), mobileHidden: true },
-      }
+      createUserColumn<UsageLog>({ headerLabel: t('User') })
     )
   }
 
@@ -643,8 +614,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const other = parseLogOther(log.other)
 
-        const promptTokens = log.prompt_tokens || 0
-        const completionTokens = log.completion_tokens || 0
+        const { promptTokens, completionTokens } = getUsageLogTokens(log, other)
         if (promptTokens === 0 && completionTokens === 0) {
           return <span className='text-muted-foreground text-xs'>-</span>
         }

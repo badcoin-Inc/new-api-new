@@ -69,6 +69,7 @@ const Home = () => {
   const { t, i18n } = useTranslation();
   const [statusState] = useContext(StatusContext);
   const actualTheme = useActualTheme();
+  const isNebulaMode = actualTheme === 'nebula';
   const [homePageContentLoaded, setHomePageContentLoaded] = useState(false);
   const [homePageContent, setHomePageContent] = useState('');
   const [noticeVisible, setNoticeVisible] = useState(false);
@@ -142,14 +143,17 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
+    if (isNebulaMode) return undefined;
+
     const timer = setInterval(() => {
       setEndpointIndex((prev) => (prev + 1) % endpointItems.length);
     }, 3000);
+
     return () => clearInterval(timer);
-  }, [endpointItems.length]);
+  }, [endpointItems.length, isNebulaMode]);
 
   return (
-    <div className='w-full overflow-x-hidden'>
+    <div className={`w-full overflow-x-hidden ${isNebulaMode ? 'nebula-home' : ''}`}>
       <NoticeModal
         visible={noticeVisible}
         onClose={() => setNoticeVisible(false)}
@@ -158,57 +162,65 @@ const Home = () => {
       {homePageContentLoaded && homePageContent === '' ? (
         <div className='w-full overflow-x-hidden'>
           {/* Banner 部分 */}
-          <div className='w-full border-b border-semi-color-border min-h-[500px] md:min-h-[600px] lg:min-h-[700px] relative overflow-x-hidden'>
+          <div className='home-hero w-full border-b border-semi-color-border min-h-[500px] md:min-h-[600px] lg:min-h-[700px] relative overflow-x-hidden'>
             {/* 背景模糊晕染球 */}
             <div className='blur-ball blur-ball-indigo' />
             <div className='blur-ball blur-ball-teal' />
-            <div className='flex items-center justify-center h-full px-4 py-20 md:py-24 lg:py-32 mt-10'>
+            <div className='home-hero-inner flex items-center justify-center h-full px-4 py-20 md:py-24 lg:py-32 mt-10'>
               {/* 居中内容区 */}
-              <div className='flex flex-col items-center justify-center text-center max-w-4xl mx-auto'>
-                <div className='flex flex-col items-center justify-center mb-6 md:mb-8'>
+              <div className='home-hero-content flex flex-col items-center justify-center text-center max-w-4xl mx-auto'>
+                <div className='home-hero-copy flex flex-col items-center justify-center mb-6 md:mb-8'>
+                  <p className='home-hero-eyebrow'>OpenAI Compatible API</p>
                   <h1
                     className={`text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-semi-color-text-0 leading-tight ${isChinese ? 'tracking-wide md:tracking-wider' : ''}`}
                   >
-                    <>
-                      {t('统一的')}
-                      <br />
-                      <span className='shine-text'>{t('大模型接口网关')}</span>
-                    </>
+                    {isNebulaMode ? (
+                      'OpenKaya'
+                    ) : (
+                      <>
+                        {t('统一的')}
+                        <br />
+                        <span className='shine-text'>{t('大模型接口网关')}</span>
+                      </>
+                    )}
                   </h1>
-                  <p className='text-base md:text-lg lg:text-xl text-semi-color-text-1 mt-4 md:mt-6 max-w-xl'>
-                    {t('多模型统一接入，只需将基址替换为：')}
+                  <p className='home-hero-description text-base md:text-lg lg:text-xl text-semi-color-text-1 mt-5 md:mt-8 max-w-xl'>
+                    {isNebulaMode
+                      ? t('连接多元智能，构建你的统一 AI 入口')
+                      : t('多模型统一接入，只需将基址替换为：')}
                   </p>
-                  {/* BASE URL 与端点选择 */}
-                  <div className='flex flex-col md:flex-row items-center justify-center gap-4 w-full mt-4 md:mt-6 max-w-md'>
-                    <Input
-                      readonly
-                      value={serverAddress}
-                      className='flex-1 !rounded-full'
-                      size={isMobile ? 'default' : 'large'}
-                      suffix={
-                        <div className='flex items-center gap-2'>
-                          <ScrollList
-                            bodyHeight={32}
-                            style={{ border: 'unset', boxShadow: 'unset' }}
-                          >
-                            <ScrollItem
-                              mode='wheel'
-                              cycled={true}
-                              list={endpointItems}
-                              selectedIndex={endpointIndex}
-                              onSelect={({ index }) => setEndpointIndex(index)}
+                  {!isNebulaMode && (
+                    <div className='flex flex-col md:flex-row items-center justify-center gap-4 w-full mt-4 md:mt-6 max-w-md'>
+                      <Input
+                        readonly
+                        value={serverAddress}
+                        className='flex-1 !rounded-full'
+                        size={isMobile ? 'default' : 'large'}
+                        suffix={
+                          <div className='flex items-center gap-2'>
+                            <ScrollList
+                              bodyHeight={32}
+                              style={{ border: 'unset', boxShadow: 'unset' }}
+                            >
+                              <ScrollItem
+                                mode='wheel'
+                                cycled={true}
+                                list={endpointItems}
+                                selectedIndex={endpointIndex}
+                                onSelect={({ index }) => setEndpointIndex(index)}
+                              />
+                            </ScrollList>
+                            <Button
+                              type='primary'
+                              onClick={handleCopyBaseURL}
+                              icon={<IconCopy />}
+                              className='!rounded-full'
                             />
-                          </ScrollList>
-                          <Button
-                            type='primary'
-                            onClick={handleCopyBaseURL}
-                            icon={<IconCopy />}
-                            className='!rounded-full'
-                          />
-                        </div>
-                      }
-                    />
-                  </div>
+                          </div>
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* 操作按钮 */}
@@ -252,84 +264,86 @@ const Home = () => {
                   )}
                 </div>
 
-                {/* 框架兼容性图标 */}
-                <div className='mt-12 md:mt-16 lg:mt-20 w-full'>
-                  <div className='flex items-center mb-6 md:mb-8 justify-center'>
-                    <Text
-                      type='tertiary'
-                      className='text-lg md:text-xl lg:text-2xl font-light'
-                    >
-                      {t('支持众多的大模型供应商')}
-                    </Text>
+                {!isNebulaMode && (
+                  <div className='mt-12 md:mt-16 lg:mt-20 w-full'>
+                    <div className='flex items-center mb-6 md:mb-8 justify-center'>
+                      <Text
+                        type='tertiary'
+                        className='text-lg md:text-xl lg:text-2xl font-light'
+                      >
+                        {t('支持众多的大模型供应商')}
+                      </Text>
+                    </div>
+                    <div className='flex flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 max-w-5xl mx-auto px-4'>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Moonshot size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <OpenAI size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <XAI size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Zhipu.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Volcengine.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Cohere.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Claude.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Gemini.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Suno size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Minimax.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Wenxin.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Spark.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Qingyan.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <DeepSeek.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Qwen.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Midjourney size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Grok size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <AzureAI.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Hunyuan.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Xinference.Color size={40} />
+                      </div>
+                      <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
+                        <Typography.Text className='!text-lg sm:!text-xl md:!text-2xl lg:!text-3xl font-bold'>
+                          30+
+                        </Typography.Text>
+                      </div>
+                    </div>
                   </div>
-                  <div className='flex flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 max-w-5xl mx-auto px-4'>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Moonshot size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <OpenAI size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <XAI size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Zhipu.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Volcengine.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Cohere.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Claude.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Gemini.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Suno size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Minimax.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Wenxin.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Spark.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Qingyan.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <DeepSeek.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Qwen.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Midjourney size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Grok size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <AzureAI.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Hunyuan.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Xinference.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Typography.Text className='!text-lg sm:!text-xl md:!text-2xl lg:!text-3xl font-bold'>
-                        30+
-                      </Typography.Text>
-                    </div>
-                  </div>
-                </div>
+                )}
+
               </div>
             </div>
           </div>

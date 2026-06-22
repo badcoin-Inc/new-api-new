@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { StatusBadgeProps } from '@/components/status-badge'
 import {
+  BILLING_FIXED_PRICE_VAR,
   BILLING_PRICING_VARS,
   normalizeTierLabel,
   parseTiersFromExpr,
@@ -103,6 +104,23 @@ export function parseLogOther(other: string): LogOtherData | null {
     console.error('Failed to parse log other field:', error)
     return null
   }
+}
+
+export function getUsageLogTokens(
+  log: UsageLog,
+  other: LogOtherData | null
+): { promptTokens: number; completionTokens: number } {
+  const promptTokens =
+    log.prompt_tokens ||
+    other?.input_tokens_total ||
+    (other?.text_input || 0) +
+      (other?.audio_input || 0) +
+      (other?.image_output || 0)
+  const completionTokens =
+    log.completion_tokens ||
+    (other?.text_output || 0) + (other?.audio_output || 0)
+
+  return { promptTokens, completionTokens }
 }
 
 /**
@@ -229,7 +247,12 @@ export function resolveMatchedTier(
 export interface TieredBillingSummary {
   tiers: ParsedTier[]
   tier: ParsedTier
-  priceEntries: Array<{ field: string; shortLabel: string; price: number }>
+  priceEntries: Array<{
+    field: string
+    shortLabel: string
+    price: number
+    unit: 'call' | 'million_tokens'
+  }>
 }
 
 /**
@@ -262,16 +285,18 @@ export function getTieredBillingSummary(
   const cacheTokensPresent = hasAnyCacheTokens(other)
 
   const priceEntries: TieredBillingSummary['priceEntries'] = []
-  for (const v of BILLING_PRICING_VARS) {
+  for (const v of [BILLING_FIXED_PRICE_VAR, ...BILLING_PRICING_VARS]) {
     if (!v.field) continue
     if (v.group === 'cache' && !cacheTokensPresent) continue
     const raw = tier[v.field as keyof ParsedTier]
     const price = Number(raw)
     if (Number.isFinite(price) && price > 0) {
+      const isFixedPrice = v.field === 'fixedPrice'
       priceEntries.push({
         field: v.field,
         shortLabel: v.shortLabel,
-        price,
+        price: isFixedPrice ? price / 1_000_000 : price,
+        unit: isFixedPrice ? 'call' : 'million_tokens',
       })
     }
   }

@@ -47,11 +47,11 @@ import {
   mjSubmitResultMapper,
 } from '../../lib/mappers'
 import type { MidjourneyLog } from '../../types'
-import { ImageDialog } from '../dialogs/image-dialog'
 import { PromptDialog } from '../dialogs/prompt-dialog'
 import {
   createDurationColumn,
   createChannelColumn,
+  createUserColumn,
   createProgressColumn,
   createFailReasonColumn,
 } from './column-helpers'
@@ -78,6 +78,20 @@ const drawingTypeIconMap: Record<string, LucideIcon> = {
 
 function getDrawingTypeIcon(action: string): LucideIcon {
   return drawingTypeIconMap[action] ?? HelpCircle
+}
+
+function formatImageUrlLabel(imageUrl: string): string {
+  try {
+    const url = new URL(imageUrl)
+    const label = `${url.host}${url.pathname}`
+    return label.length > 44
+      ? `${label.slice(0, 24)}...${label.slice(-16)}`
+      : label
+  } catch {
+    return imageUrl.length > 44
+      ? `${imageUrl.slice(0, 24)}...${imageUrl.slice(-16)}`
+      : imageUrl
+  }
 }
 
 export function useDrawingLogsColumns(
@@ -114,7 +128,8 @@ export function useDrawingLogsColumns(
 
   if (isAdmin) {
     columns.push(
-      createChannelColumn<MidjourneyLog>({ headerLabel: t('Channel') })
+      createChannelColumn<MidjourneyLog>({ headerLabel: t('Channel') }),
+      createUserColumn<MidjourneyLog>({ headerLabel: t('User') })
     )
   }
 
@@ -205,33 +220,31 @@ export function useDrawingLogsColumns(
         <DataTableColumnHeader column={column} title={t('Image')} />
       ),
       cell: function ImageCell({ row }) {
-        const log = row.original
         const imageUrl = row.getValue('image_url') as string
-        const [dialogOpen, setDialogOpen] = useState(false)
 
         if (!imageUrl) {
           return <span className='text-muted-foreground/60 text-xs'>-</span>
         }
 
         return (
-          <>
-            <button
-              type='button'
-              className='group text-left text-xs'
-              onClick={() => setDialogOpen(true)}
-              title={t('Click to view image')}
+          <div className='flex max-w-[220px] items-center gap-1.5'>
+            <a
+              className='text-foreground truncate text-xs leading-snug hover:underline'
+              href={imageUrl}
+              target='_blank'
+              rel='noreferrer'
+              title={imageUrl}
             >
-              <span className='text-foreground truncate leading-snug group-hover:underline'>
-                {t('View')}
-              </span>
-            </button>
-            <ImageDialog
-              imageUrl={imageUrl}
-              taskId={log.mj_id}
-              open={dialogOpen}
-              onOpenChange={setDialogOpen}
+              {formatImageUrlLabel(imageUrl)}
+            </a>
+            <StatusBadge
+              label={t('Copy')}
+              copyText={imageUrl}
+              size='sm'
+              showDot={false}
+              className='border-border/60 bg-muted/30 rounded-md border px-1.5 py-0.5'
             />
-          </>
+          </div>
         )
       },
       meta: { label: t('Image'), mobileHidden: true },
@@ -254,11 +267,11 @@ export function useDrawingLogsColumns(
           <>
             <button
               type='button'
-              className='group flex max-w-[220px] items-center text-left text-xs'
+              className='group flex max-w-[260px] items-center text-left text-xs'
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full prompt')}
             >
-              <span className='text-muted-foreground truncate leading-snug group-hover:underline'>
+              <span className='text-muted-foreground line-clamp-3 whitespace-pre-wrap break-words text-[11px] leading-tight group-hover:underline'>
                 {prompt}
               </span>
             </button>
@@ -272,8 +285,8 @@ export function useDrawingLogsColumns(
         )
       },
       meta: { label: t('Prompt'), mobileHidden: true },
-      size: 200,
-      maxSize: 220,
+      size: 260,
+      maxSize: 320,
     },
     createFailReasonColumn<MidjourneyLog>({
       headerLabel: t('Fail Reason'),

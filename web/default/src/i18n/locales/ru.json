@@ -1814,6 +1814,7 @@
     "Generate tokens from the Tokens page; you can scope them to specific models, groups, IPs, and rate-limits.": "Создавайте токены на странице «Токены». Их можно ограничить моделями, группами, IP и лимитами частоты.",
     "Generated default token groups": "Группы создаваемых токенов по умолчанию",
     "Generated image": "Сгенерированное изображение",
+    "Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.": "Скачайте сгенерированные изображения как можно скорее. Они действительны 1 день, после чего станут недоступны.",
     "Generating new codes will invalidate all existing backup codes.": "Генерация новых кодов аннулирует все существующие резервные коды.",
     "Generating...": "Создание...",
     "Generation quality preset": "Пресет качества генерации",

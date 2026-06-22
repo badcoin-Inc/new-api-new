@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -30,7 +31,7 @@ func ResolveIncomingBillingExprRequestInput(c *gin.Context, info *relaycommon.Re
 	if err != nil {
 		return billingexpr.RequestInput{}, err
 	}
-	input.Body = bodyBytes
+	input.Body = withImageBillingParams(bodyBytes, info)
 	return input, nil
 }
 
@@ -46,8 +47,70 @@ func BuildBillingExprRequestInputFromRequest(request dto.Request, headers map[st
 	if err != nil {
 		return billingexpr.RequestInput{}, err
 	}
-	input.Body = bodyBytes
+	input.Body = withImageBillingParamsFromRequest(bodyBytes, request)
 	return input, nil
+}
+
+func withImageBillingParams(body []byte, info *relaycommon.RelayInfo) []byte {
+	if info == nil {
+		return body
+	}
+	return withImageBillingParamsFromRequest(body, info.Request)
+}
+
+func withImageBillingParamsFromRequest(body []byte, request dto.Request) []byte {
+	imageReq, ok := request.(*dto.ImageRequest)
+	if !ok {
+		return body
+	}
+
+	bodyMap := map[string]interface{}{}
+	if len(body) > 0 {
+		if err := common.Unmarshal(body, &bodyMap); err != nil {
+			return body
+		}
+	}
+	bodyMap["billing_size"] = imageBillingSize(imageReq.Size)
+
+	updatedBody, err := common.Marshal(bodyMap)
+	if err != nil {
+		return body
+	}
+	return updatedBody
+}
+
+func imageBillingSize(size string) string {
+	size = strings.TrimSpace(size)
+	switch strings.ToLower(size) {
+	case "1k":
+		return "1K"
+	case "2k":
+		return "2K"
+	case "4k":
+		return "4K"
+	}
+
+	parts := strings.Split(strings.ToLower(size), "x")
+	if len(parts) != 2 {
+		return "2K"
+	}
+	width, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || width <= 0 || height <= 0 {
+		return "2K"
+	}
+
+	maxSide := width
+	if height > maxSide {
+		maxSide = height
+	}
+	if maxSide <= 1024 {
+		return "1K"
+	}
+	if maxSide <= 2048 {
+		return "2K"
+	}
+	return "4K"
 }
 
 func readIncomingBillingExprBody(c *gin.Context) ([]byte, error) {

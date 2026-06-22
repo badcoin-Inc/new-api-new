@@ -20,6 +20,7 @@ import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit } from '../types'
 import {
+  BILLING_FIXED_PRICE_VAR,
   BILLING_PRICING_VARS,
   parseTiersFromExpr,
   splitBillingExprAndRequestRules,
@@ -43,6 +44,7 @@ export type DynamicPriceEntry = {
   shortLabel: string
   value: number
   formatted: string
+  unit: 'call' | 'token'
   variable: BillingVar
 }
 
@@ -58,7 +60,11 @@ export type DynamicPricingSummary = {
   secondaryEntries: DynamicPriceEntry[]
 }
 
-const PRIMARY_DYNAMIC_FIELDS = new Set(['inputPrice', 'outputPrice'])
+const PRIMARY_DYNAMIC_FIELDS = new Set([
+  'fixedPrice',
+  'inputPrice',
+  'outputPrice',
+])
 
 export function isDynamicPricingModel(model: PricingModel): boolean {
   return model.billing_mode === 'tiered_expr' && Boolean(model.billing_expr)
@@ -114,6 +120,28 @@ export function formatDynamicUnitPrice(
   })
 }
 
+function formatDynamicFixedPrice(
+  valuePerCallUnit: number,
+  options: DynamicPriceOptions
+): string {
+  const groupRatio = options.groupRatioMultiplier ?? 1
+  const priceRate = options.priceRate ?? 1
+  const usdExchangeRate = options.usdExchangeRate ?? 1
+  const priceUSD = (valuePerCallUnit / 1_000_000) * groupRatio
+  const displayPrice = applyRechargeRate(
+    priceUSD,
+    options.showRechargePrice ?? false,
+    priceRate,
+    usdExchangeRate
+  )
+
+  return formatBillingCurrencyFromUSD(displayPrice, {
+    digitsLarge: 4,
+    digitsSmall: 6,
+    abbreviate: false,
+  })
+}
+
 export function getDynamicPricingTiers(model: PricingModel): ParsedTier[] {
   if (!isDynamicPricingModel(model)) return []
   const { billingExpr } = splitBillingExprAndRequestRules(
@@ -136,28 +164,37 @@ export function getDynamicPriceEntries(
 ): DynamicPriceEntry[] {
   if (!tier) return []
 
-  return BILLING_PRICING_VARS.flatMap((variable) => {
-    if (!variable.field) return []
-    const value = Number(tier[variable.field])
-    if (!Number.isFinite(value) || value <= 0) return []
+  return [BILLING_FIXED_PRICE_VAR, ...BILLING_PRICING_VARS]
+    .flatMap((variable) => {
+      if (!variable.field) return []
+      const value = Number(tier[variable.field])
+      if (!Number.isFinite(value) || value <= 0) return []
+      const formatted =
+        variable.field === 'fixedPrice'
+          ? formatDynamicFixedPrice(value, options)
+          : formatDynamicUnitPrice(value, options)
+    const unit: DynamicPriceEntry['unit'] =
+      variable.field === 'fixedPrice' ? 'call' : 'token'
 
-    return [
-      {
-        key: variable.key,
-        field: variable.field,
-        label: variable.label,
-        shortLabel: variable.shortLabel,
-        value,
-        formatted: formatDynamicUnitPrice(value, options),
-        variable,
-      },
-    ]
-  }).sort((a, b) => {
-    const aPrimary = PRIMARY_DYNAMIC_FIELDS.has(a.field)
-    const bPrimary = PRIMARY_DYNAMIC_FIELDS.has(b.field)
-    if (aPrimary !== bPrimary) return aPrimary ? -1 : 1
-    return 0
-  })
+      return [
+        {
+          key: variable.key,
+          field: variable.field,
+          label: variable.label,
+          shortLabel: variable.shortLabel,
+          value,
+          formatted,
+          unit,
+          variable,
+        },
+      ]
+    })
+    .sort((a, b) => {
+      const aPrimary = PRIMARY_DYNAMIC_FIELDS.has(a.field)
+      const bPrimary = PRIMARY_DYNAMIC_FIELDS.has(b.field)
+      if (aPrimary !== bPrimary) return aPrimary ? -1 : 1
+      return 0
+    })
 }
 
 export function getDynamicPricingSummary(

@@ -103,9 +103,11 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 	if err != nil {
 		if showBodyWhenFail {
 			newApiErr.Err = buildErrWithBody("")
+			newApiErr.OriginalErr = newApiErr.Err
 		} else {
 			logger.LogError(ctx, fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody)))
 			newApiErr.Err = fmt.Errorf("bad response status code %d", resp.StatusCode)
+			newApiErr.OriginalErr = newApiErr.Err
 		}
 		return
 	}
@@ -117,6 +119,7 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 			newApiErr = types.WithOpenAIError(*oaiError, resp.StatusCode)
 			if showBodyWhenFail {
 				newApiErr.Err = buildErrWithBody(newApiErr.Error())
+				newApiErr.OriginalErr = newApiErr.Err
 			}
 			return
 		}
@@ -124,6 +127,7 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 	newApiErr = types.NewOpenAIError(errors.New(errResponse.ToMessage()), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
 	if showBodyWhenFail {
 		newApiErr.Err = buildErrWithBody(newApiErr.Error())
+		newApiErr.OriginalErr = newApiErr.Err
 	}
 	return
 }

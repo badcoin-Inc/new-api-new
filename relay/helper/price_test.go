@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
@@ -56,7 +57,55 @@ func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1500, priceData.QuotaToPreConsume)
 	require.NotNil(t, info.TieredBillingSnapshot)
+	require.NotNil(t, priceData.TieredBillingSnapshot)
+	require.NotNil(t, priceData.BillingRequestInput)
 	require.Equal(t, "stream", info.TieredBillingSnapshot.EstimatedTier)
+	require.Equal(t, info.TieredBillingSnapshot.EstimatedTier, priceData.TieredBillingSnapshot.EstimatedTier)
+	require.JSONEq(t, `{"stream":true}`, string(priceData.BillingRequestInput.Body))
 	require.Equal(t, billing_setting.BillingModeTieredExpr, info.TieredBillingSnapshot.BillingMode)
 	require.Equal(t, common.QuotaPerUnit, info.TieredBillingSnapshot.QuotaPerUnit)
+}
+
+func TestModelPriceHelperTieredMultipliesImageQuantity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"tiered-image-model":"tiered_expr"}`,
+		"billing_setting.billing_expr": `{"tiered-image-model":"tier(\"1k\", 10000 + p * 0 + c * 0)"}`,
+	}))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+	ctx.Set("group", "default")
+
+	imageN := uint(2)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "tiered-image-model",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		RelayFormat:     types.RelayFormatOpenAIImage,
+		Request: &dto.ImageRequest{
+			Model: "tiered-image-model",
+			N:     &imageN,
+		},
+	}
+
+	priceData, err := ModelPriceHelper(ctx, info, 1, &types.TokenCountMeta{})
+	require.NoError(t, err)
+	require.Equal(t, 10000, priceData.QuotaToPreConsume)
+	require.NotNil(t, info.TieredBillingSnapshot)
+	require.Equal(t, 10000.0, info.TieredBillingSnapshot.EstimatedQuotaBeforeGroup)
+	require.Equal(t, 10000, info.TieredBillingSnapshot.EstimatedQuotaAfterGroup)
 }

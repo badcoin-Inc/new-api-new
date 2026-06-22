@@ -428,6 +428,7 @@ export const STATIC_I18N_KEYS = [
   'API usage records',
   'Drawing Logs',
   'Drawing task records',
+  'Generated images should be downloaded as soon as possible. They are valid for 1 day and will expire afterward.',
   'Task Logs',
   'System task records',
   'Personal Center Area',

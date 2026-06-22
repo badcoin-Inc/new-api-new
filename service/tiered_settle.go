@@ -1,9 +1,12 @@
 package service
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/types"
 )
 
 // TieredResultWrapper wraps billingexpr.TieredResult for use at the service layer.
@@ -112,5 +115,34 @@ func TryTieredSettle(relayInfo *relaycommon.RelayInfo, params billingexpr.TokenP
 		return true, quota, nil
 	}
 
+	multiplier := tieredRequestQuantityMultiplier(relayInfo, snap.ExprString)
+	if multiplier != 1 {
+		tr.ActualQuotaBeforeGroup *= multiplier
+		tr.ActualQuotaAfterGroup = billingexpr.QuotaRound(float64(tr.ActualQuotaAfterGroup) * multiplier)
+	}
 	return true, tr.ActualQuotaAfterGroup, &tr
+}
+
+func tieredRequestQuantityMultiplier(relayInfo *relaycommon.RelayInfo, exprStr string) float64 {
+	if relayInfo == nil || relayInfo.RelayFormat != types.RelayFormatOpenAIImage {
+		return 1
+	}
+	requestQuantity := 1.0
+	if request, ok := relayInfo.Request.(*dto.ImageRequest); ok && request.N != nil && *request.N > 0 {
+		requestQuantity = float64(*request.N)
+	}
+	if actualQuantity, ok := relayInfo.PriceData.OtherRatios["n"]; ok && actualQuantity > 0 {
+		if tieredExprHandlesImageQuantity(exprStr) {
+			return actualQuantity / requestQuantity
+		}
+		return actualQuantity
+	}
+	if tieredExprHandlesImageQuantity(exprStr) {
+		return 1
+	}
+	return requestQuantity
+}
+
+func tieredExprHandlesImageQuantity(exprStr string) bool {
+	return strings.Contains(exprStr, `param("n")`) || strings.Contains(exprStr, `param('n')`)
 }

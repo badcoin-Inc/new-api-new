@@ -31,6 +31,7 @@ export type TierConditionInput = {
 export type VisualTier = {
   label: string
   conditions: TierConditionInput[]
+  fixed_unit_cost: number
   input_unit_cost: number
   output_unit_cost: number
   cache_mode: CacheMode
@@ -63,6 +64,7 @@ export function normalizeVisualTier(
 ): VisualTier {
   return {
     label: tier.label ?? '',
+    fixed_unit_cost: Number(tier.fixed_unit_cost) || 0,
     input_unit_cost: Number(tier.input_unit_cost) || 0,
     output_unit_cost: Number(tier.output_unit_cost) || 0,
     cache_mode: getTierCacheMode(tier),
@@ -83,6 +85,7 @@ export function createDefaultVisualConfig(): VisualConfig {
     tiers: [
       normalizeVisualTier({
         conditions: [],
+        fixed_unit_cost: 0,
         input_unit_cost: 0,
         output_unit_cost: 0,
         label: 'base',
@@ -114,8 +117,10 @@ function buildConditionStr(conditions: TierConditionInput[]): string {
 
 function buildTierBodyExpr(tier: VisualTier): string {
   const parts: string[] = []
+  const fc = Number(tier.fixed_unit_cost) || 0
   const ic = Number(tier.input_unit_cost) || 0
   const oc = Number(tier.output_unit_cost) || 0
+  if (fc !== 0) parts.push(String(fc))
   parts.push(`p * ${ic}`)
   parts.push(`c * ${oc}`)
   for (const cv of BILLING_CACHE_VAR_MAP) {
@@ -173,19 +178,21 @@ export function tryParseVisualConfig(
       .map((v) => `(?:\\s*\\+\\s*${v}\\s*\\*\\s*([\\d.eE+-]+))?`)
       .join('')
 
-    const bodyPat = `p\\s*\\*\\s*([\\d.eE+-]+)\\s*\\+\\s*c\\s*\\*\\s*([\\d.eE+-]+)${optCacheStr}`
+    const fixedCostStr = `(?:([\\d.eE+-]+)\\s*\\+\\s*)?`
+    const bodyPat = `${fixedCostStr}p\\s*\\*\\s*([\\d.eE+-]+)\\s*\\+\\s*c\\s*\\*\\s*([\\d.eE+-]+)${optCacheStr}`
 
     const singleRe = new RegExp(`^tier\\("([^"]*)",\\s*${bodyPat}\\)$`)
     const simple = body.match(singleRe)
     if (simple) {
       const tier: Record<string, unknown> = {
         conditions: [],
-        input_unit_cost: Number(simple[2]),
-        output_unit_cost: Number(simple[3]),
+        fixed_unit_cost: Number(simple[2] || 0),
+        input_unit_cost: Number(simple[3]),
+        output_unit_cost: Number(simple[4]),
         label: simple[1],
       }
       BILLING_CACHE_VAR_MAP.forEach((cv, i) => {
-        const val = simple[4 + i]
+        const val = simple[5 + i]
         if (val != null) tier[cv.field] = Number(val)
       })
       return normalizeVisualConfig({
@@ -219,13 +226,14 @@ export function tryParseVisualConfig(
       }
       const tier: Record<string, unknown> = {
         conditions,
-        input_unit_cost: Number(match[3]),
-        output_unit_cost: Number(match[4]),
+        fixed_unit_cost: Number(match[3] || 0),
+        input_unit_cost: Number(match[4]),
+        output_unit_cost: Number(match[5]),
         label: match[2],
       }
       const m = match
       BILLING_CACHE_VAR_MAP.forEach((cv, i) => {
-        const val = m[5 + i]
+        const val = m[6 + i]
         if (val != null) tier[cv.field] = Number(val)
       })
       tiers.push(normalizeVisualTier(tier as Partial<VisualTier>))
@@ -293,6 +301,15 @@ export function evalExprLocally(
       c: completionTokens,
       len,
       tier: tierFn,
+      param: (path: string) => localParamValue(path),
+      header: () => '',
+      has: (source: unknown, substr: string) =>
+        source != null && String(source).includes(substr),
+      hour: (tz: string) => localDatePart(tz, 'hour'),
+      minute: (tz: string) => localDatePart(tz, 'minute'),
+      weekday: (tz: string) => localDatePart(tz, 'weekday'),
+      month: (tz: string) => localDatePart(tz, 'month'),
+      day: (tz: string) => localDatePart(tz, 'day'),
       max: Math.max,
       min: Math.min,
       abs: Math.abs,
@@ -311,6 +328,32 @@ export function evalExprLocally(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     return { cost: 0, matchedTier: '', error: message }
+  }
+}
+
+function localParamValue(path: string): unknown {
+  if (path === 'billing_size') return '2K'
+  return null
+}
+
+function localDatePart(
+  tz: string,
+  part: 'hour' | 'minute' | 'weekday' | 'month' | 'day'
+): number {
+  const date = tz
+    ? new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+    : new Date()
+  switch (part) {
+    case 'hour':
+      return date.getHours()
+    case 'minute':
+      return date.getMinutes()
+    case 'weekday':
+      return date.getDay()
+    case 'month':
+      return date.getMonth() + 1
+    case 'day':
+      return date.getDate()
   }
 }
 

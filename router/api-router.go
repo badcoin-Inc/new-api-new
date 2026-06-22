@@ -341,6 +341,14 @@ func SetApiRouter(router *gin.Engine) {
 			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 		}
+		generationJobRoute := apiRouter.Group("/generation_jobs")
+		{
+			generationJobRoute.GET("/self", middleware.UserAuth(), controller.GetUserGenerationJobs)
+			generationJobRoute.POST("/upload_image", middleware.UserAuth(), controller.UploadGenerationJobImage)
+			generationJobRoute.POST("/:id/retry", middleware.UserAuth(), controller.RetryGenerationJob)
+			generationJobRoute.DELETE("/:id", middleware.UserAuth(), controller.CancelGenerationJob)
+			generationJobRoute.GET("/", middleware.AdminAuth(), controller.GetAllGenerationJobs)
+		}
 
 		vendorRoute := apiRouter.Group("/vendors")
 		vendorRoute.Use(middleware.AdminAuth())

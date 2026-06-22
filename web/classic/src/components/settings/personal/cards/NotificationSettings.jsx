@@ -162,8 +162,9 @@ const NotificationSettings = ({
         detail: true,
         token: true,
         log: true,
-        midjourney: true,
+        midjourney: false,
         task: true,
+        generation_jobs: true,
       },
       personal: { enabled: true, topup: true, personal: true },
       admin: {
@@ -271,6 +272,11 @@ const NotificationSettings = ({
           description: t('绘图任务记录'),
         },
         { key: 'task', title: t('任务日志'), description: t('系统任务记录') },
+        {
+          key: 'generation_jobs',
+          title: t('生图任务'),
+          description: t('异步生图和改图任务'),
+        },
       ],
     },
     {
@@ -478,7 +484,10 @@ const NotificationSettings = ({
                     checkedText={t('开')}
                     uncheckedText={t('关')}
                     onChange={(value) =>
-                      handleFormChange('upstreamModelUpdateNotifyEnabled', value)
+                      handleFormChange(
+                        'upstreamModelUpdateNotifyEnabled',
+                        value,
+                      )
                     }
                     extraText={t(
                       '仅管理员可用。开启后，当系统定时检测全部渠道发现上游模型变更或检测异常时，将按你选择的通知方式发送汇总通知；渠道或模型过多时会自动省略部分明细。',

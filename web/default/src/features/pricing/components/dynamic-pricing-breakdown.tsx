@@ -31,6 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  BILLING_FIXED_PRICE_VAR,
   BILLING_PRICING_VARS,
   MATCH_CONTAINS,
   MATCH_EQ,
@@ -84,6 +85,8 @@ const TIME_FUNC_LABELS: Record<string, string> = {
   month: 'Month',
   day: 'Day',
 }
+
+const DISPLAY_PRICE_VARS = [BILLING_FIXED_PRICE_VAR, ...BILLING_PRICING_VARS]
 
 function formatTokenHint(value: string | number): string {
   const n = Number(value)
@@ -219,13 +222,20 @@ export function DynamicPricingBreakdown({
     )
   }
 
-  const visiblePriceFields = BILLING_PRICING_VARS.filter((v) => {
+  const visiblePriceFields = DISPLAY_PRICE_VARS.filter((v) => {
     if (!hasTiers) return false
     if (hideCacheColumns && v.group === 'cache') return false
     return tiers.some(
       (tier) => Number(tier[v.field as string as keyof ParsedTier] || 0) > 0
     )
   })
+
+  const formatTierPrice = (tier: ParsedTier, field: string): string => {
+    const value = Number(tier[field] || 0)
+    if (value <= 0) return '-'
+    const price = field === 'fixedPrice' ? value / 1_000_000 : value
+    return `${symbol}${(price * rate).toFixed(4)}`
+  }
 
   return (
     <section className='min-w-0 py-3 sm:py-4'>
@@ -286,18 +296,13 @@ export function DynamicPricingBreakdown({
                   )}
                   <div className='grid grid-cols-2 gap-x-3 gap-y-1.5'>
                     {visiblePriceFields.map((v) => {
-                      const value = Number(
-                        tier[v.field as string as keyof ParsedTier] || 0
-                      )
                       return (
                         <div key={v.field} className='min-w-0'>
                           <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
                             {t(v.shortLabel)}
                           </div>
                           <div className='truncate font-mono text-sm font-semibold'>
-                            {value > 0
-                              ? `${symbol}${(value * rate).toFixed(4)}`
-                              : '-'}
+                            {formatTierPrice(tier, v.field as string)}
                           </div>
                         </div>
                       )
@@ -363,17 +368,14 @@ export function DynamicPricingBreakdown({
                         )}
                       </TableCell>
                       {visiblePriceFields.map((v) => {
-                        const value = Number(
-                          tier[v.field as string as keyof ParsedTier] || 0
-                        )
                         return (
                           <TableCell
                             key={v.field}
                             className='py-2.5 text-right align-top font-mono'
                           >
-                            {value > 0 ? (
+                            {Number(tier[v.field as string] || 0) > 0 ? (
                               <span className='font-semibold'>
-                                {`${symbol}${(value * rate).toFixed(4)}`}
+                                {formatTierPrice(tier, v.field as string)}
                               </span>
                             ) : (
                               '-'

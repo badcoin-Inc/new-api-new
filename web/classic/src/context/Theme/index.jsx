@@ -44,12 +44,29 @@ const getSystemTheme = () => {
   return 'light';
 };
 
+const isLowPerformanceDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+
+  const lowCoreCount =
+    typeof navigator.hardwareConcurrency === 'number' &&
+    navigator.hardwareConcurrency <= 4;
+  const lowMemory =
+    typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+  const mobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(
+    navigator.userAgent,
+  );
+
+  return mobileDevice || lowCoreCount || lowMemory;
+};
+
+const getDefaultTheme = () => (isLowPerformanceDevice() ? 'light' : 'nebula');
+
 export const ThemeProvider = ({ children }) => {
   const [theme, _setTheme] = useState(() => {
     try {
-      return localStorage.getItem('theme-mode') || 'auto';
+      return localStorage.getItem('theme-mode') || getDefaultTheme();
     } catch {
-      return 'auto';
+      return getDefaultTheme();
     }
   });
 
@@ -78,12 +95,18 @@ export const ThemeProvider = ({ children }) => {
   // 应用主题到DOM
   useEffect(() => {
     const body = document.body;
-    if (actualTheme === 'dark') {
+    if (actualTheme === 'dark' || actualTheme === 'nebula') {
       body.setAttribute('theme-mode', 'dark');
       document.documentElement.classList.add('dark');
     } else {
       body.removeAttribute('theme-mode');
       document.documentElement.classList.remove('dark');
+    }
+
+    if (actualTheme === 'nebula') {
+      body.setAttribute('data-theme-mode', 'nebula');
+    } else {
+      body.removeAttribute('data-theme-mode');
     }
   }, [actualTheme]);
 
@@ -94,7 +117,7 @@ export const ThemeProvider = ({ children }) => {
       // 向后兼容原有的 boolean 参数
       themeValue = newTheme ? 'dark' : 'light';
     } else if (typeof newTheme === 'string') {
-      // 新的字符串参数支持 'light', 'dark', 'auto'
+      // 新的字符串参数支持 'light', 'dark', 'auto', 'nebula'
       themeValue = newTheme;
     } else {
       themeValue = 'auto';

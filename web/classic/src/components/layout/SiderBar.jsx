@@ -25,6 +25,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useSidebar } from '../../hooks/common/useSidebar';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
+import { useActualTheme } from '../../context/Theme';
 import { isAdmin, isRoot, showError } from '../../helpers';
 import SkeletonWrapper from './components/SkeletonWrapper';
 
@@ -45,6 +46,7 @@ const routerMap = {
   detail: '/console',
   pricing: '/pricing',
   task: '/console/task',
+  generation_jobs: '/console/generation_jobs',
   models: '/console/models',
   deployment: '/console/deployment',
   playground: '/console/playground',
@@ -66,6 +68,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   const [chatItems, setChatItems] = useState([]);
   const [openedKeys, setOpenedKeys] = useState([]);
   const location = useLocation();
+  const actualTheme = useActualTheme();
   const [routerMapState, setRouterMapState] = useState(routerMap);
 
   const workspaceItems = useMemo(() => {
@@ -104,6 +107,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/task',
         className:
           localStorage.getItem('enable_task') === 'true' ? '' : 'tableHiddle',
+      },
+      {
+        text: t('生图任务'),
+        itemKey: 'generation_jobs',
+        to: '/generation_jobs',
       },
     ];
 
@@ -308,7 +316,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   }, [collapsed]);
 
   // 选中高亮颜色（统一）
-  const SELECTED_COLOR = 'var(--semi-color-primary)';
+  const SELECTED_COLOR =
+    actualTheme === 'nebula' ? '#f4f8fc' : 'var(--semi-color-primary)';
+  const selectedIconColor = actualTheme === 'nebula' ? '#f4f8fc' : undefined;
 
   // 渲染自定义菜单项
   const renderNavItem = (item) => {
@@ -332,7 +342,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         }
         icon={
           <div className='sidebar-icon-container flex-shrink-0'>
-            {getLucideIcon(item.itemKey, isSelected)}
+            {getLucideIcon(item.itemKey, isSelected, selectedIconColor)}
           </div>
         }
         className={item.className}
@@ -360,7 +370,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
           }
           icon={
             <div className='sidebar-icon-container flex-shrink-0'>
-              {getLucideIcon(item.itemKey, isSelected)}
+              {getLucideIcon(item.itemKey, isSelected, selectedIconColor)}
             </div>
           }
         >

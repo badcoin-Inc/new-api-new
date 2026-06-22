@@ -129,7 +129,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                         <span className='text-foreground font-mono font-semibold'>
                           {entry.formatted}
                         </span>
-                        /{tokenUnitLabel}
+                        /{entry.unit === 'call' ? t('request') : tokenUnitLabel}
                       </span>
                     ))}
                   </>

@@ -431,6 +431,10 @@ func validateTwoFactorAuth(twoFA *model.TwoFA, code string) bool {
 
 // validateChannel 通用的渠道校验函数
 func validateChannel(channel *model.Channel, isAdd bool) error {
+	if channel != nil && channel.ErrorMessageMapping != nil && len(*channel.ErrorMessageMapping) > 2048 {
+		return fmt.Errorf("错误文案映射[error_message_mapping] 不能超过 2048 字符")
+	}
+
 	// 校验 channel settings
 	if err := channel.ValidateSettings(); err != nil {
 		return fmt.Errorf("渠道额外设置[channel setting] 格式错误：%s", err.Error())

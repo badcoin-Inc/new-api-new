@@ -109,6 +109,7 @@ export const useDashboardCharts = (
     color: {
       specified: modelColorMap,
     },
+    background: 'transparent',
   });
 
   const [spec_line, setSpecLine] = useState({
@@ -183,6 +184,7 @@ export const useDashboardCharts = (
     color: {
       specified: modelColorMap,
     },
+    background: 'transparent',
   });
 
   const [spec_model_line, setSpecModelLine] = useState({
@@ -241,6 +243,7 @@ export const useDashboardCharts = (
     color: {
       specified: modelColorMap,
     },
+    background: 'transparent',
   });
 
   const [spec_rank_bar, setSpecRankBar] = useState({
@@ -284,6 +287,7 @@ export const useDashboardCharts = (
     color: {
       specified: modelColorMap,
     },
+    background: 'transparent',
   });
 
   // ========== Admin: 用户消耗排行 ==========
@@ -326,6 +330,7 @@ export const useDashboardCharts = (
       },
     },
     color: { type: 'ordinal', range: USER_COLORS },
+    background: 'transparent',
   });
 
   // ========== Admin: 用户消耗趋势 ==========
@@ -381,6 +386,7 @@ export const useDashboardCharts = (
       },
     },
     color: { type: 'ordinal', range: USER_COLORS },
+    background: 'transparent',
   });
 
   // ========== 数据处理函数 ==========
