@@ -57,6 +57,16 @@ func GetAllTokens(c *gin.Context) {
 	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
+	if c.Query("generation_job") == "true" {
+		common.ApiSuccess(c, gin.H{
+			"page":                       pageInfo.Page,
+			"page_size":                  pageInfo.PageSize,
+			"total":                      pageInfo.Total,
+			"items":                      pageInfo.Items,
+			"generation_job_token_group": group,
+		})
+		return
+	}
 	common.ApiSuccess(c, pageInfo)
 }
 

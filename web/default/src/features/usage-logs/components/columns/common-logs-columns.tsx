@@ -45,6 +45,7 @@ import {
   hasAnyCacheTokens,
   parseLogOther,
   isViolationFeeLog,
+  shouldHideUsageLogTokens,
 } from '../../lib/format'
 import {
   isDisplayableLogType,
@@ -613,6 +614,10 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         if (!isDisplayableLogType(log.type)) return null
 
         const other = parseLogOther(log.other)
+
+        if (shouldHideUsageLogTokens(other)) {
+          return <span className='text-muted-foreground text-xs'>-</span>
+        }
 
         const { promptTokens, completionTokens } = getUsageLogTokens(log, other)
         if (promptTokens === 0 && completionTokens === 0) {

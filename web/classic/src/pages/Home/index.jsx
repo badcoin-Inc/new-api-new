@@ -184,7 +184,9 @@ const Home = () => {
                       </>
                     )}
                   </h1>
-                  <p className='home-hero-description text-base md:text-lg lg:text-xl text-semi-color-text-1 mt-5 md:mt-8 max-w-xl'>
+                  <p
+                    className={`home-hero-description text-base md:text-lg lg:text-xl text-semi-color-text-1 max-w-xl ${isNebulaMode ? 'mt-12 md:mt-16' : 'mt-5 md:mt-8'}`}
+                  >
                     {isNebulaMode
                       ? t('连接多元智能，构建你的统一 AI 入口')
                       : t('多模型统一接入，只需将基址替换为：')}

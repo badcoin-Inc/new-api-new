@@ -10,8 +10,10 @@ import {
   Table,
   Tag,
   TextArea,
+  Tooltip,
   Typography,
 } from '@douyinfe/semi-ui';
+import { IconHelpCircle } from '@douyinfe/semi-icons';
 import {
   API,
   getUserIdFromLocalStorage,
@@ -48,6 +50,7 @@ const GenerationJobs = () => {
   const [cancellingJobId, setCancellingJobId] = useState('');
   const [retryingJobId, setRetryingJobId] = useState('');
   const [tokens, setTokens] = useState([]);
+  const [generationJobTokenGroup, setGenerationJobTokenGroup] = useState();
   const [selectedTokenId, setSelectedTokenId] = useState();
   const [createForm, setCreateForm] = useState({
     model: 'gpt-image-2',
@@ -91,8 +94,17 @@ const GenerationJobs = () => {
         params: { p: 1, size: 100, generation_job: true },
         disableDuplicate: true,
       });
-      const items = res.data?.data?.items || [];
+      const data = res.data?.data || {};
+      const items = data.items || [];
       setTokens(items);
+      setGenerationJobTokenGroup(
+        Object.prototype.hasOwnProperty.call(
+          data,
+          'generation_job_token_group',
+        )
+          ? data.generation_job_token_group
+          : items[0]?.group,
+      );
       if (!selectedTokenId && items.length > 0) {
         setSelectedTokenId(items[0].id);
       }
@@ -451,6 +463,7 @@ const GenerationJobs = () => {
         visible={createModalOpen}
         creating={creating}
         tokens={tokens}
+        generationJobTokenGroup={generationJobTokenGroup}
         selectedTokenId={selectedTokenId}
         setSelectedTokenId={setSelectedTokenId}
         form={createForm}
@@ -501,10 +514,25 @@ function isPartiallySucceededJob(status, job) {
   return generatedImageCount > 0 && generatedImageCount < job.image_count;
 }
 
+function getGenerationJobTokenGroupTip(group, t) {
+  if (group === undefined) {
+    return t('正在读取生图任务令牌分组配置...');
+  }
+
+  if (!group) {
+    return t('当前未配置生图任务令牌分组，这里会显示你的全部令牌。');
+  }
+
+  return t('请先创建分组为 {{group}} 的令牌，否则这里不会显示可用令牌。', {
+    group,
+  });
+}
+
 function CreateGenerationJobModal({
   visible,
   creating,
   tokens,
+  generationJobTokenGroup,
   selectedTokenId,
   setSelectedTokenId,
   form,
@@ -573,7 +601,16 @@ function CreateGenerationJobModal({
     >
       <div className='flex flex-col gap-4'>
         <div>
-          <div className='mb-1 text-sm font-medium'>{t('使用令牌')}</div>
+          <div className='mb-1 flex items-center gap-1 text-sm font-medium'>
+            <span>{t('使用令牌')}</span>
+            <Tooltip
+              content={getGenerationJobTokenGroupTip(generationJobTokenGroup, t)}
+              position='top'
+              showArrow
+            >
+              <IconHelpCircle className='cursor-help text-gray-400' />
+            </Tooltip>
+          </div>
           <Select
             value={selectedTokenId}
             onChange={setSelectedTokenId}

@@ -205,6 +205,7 @@ const StarNestBackground = ({ interactive, forceLowPower = false }) => {
       downX: 0,
       downY: 0,
     };
+    const mouseInfluence = 0.5;
     const startTime = performance.now();
     let lastRenderTime = 0;
     let frameId;
@@ -223,8 +224,13 @@ const StarNestBackground = ({ interactive, forceLowPower = false }) => {
 
     const handlePointerMove = (event) => {
       const rect = canvas.getBoundingClientRect();
-      mouse.x = event.clientX - rect.left;
-      mouse.y = rect.height - (event.clientY - rect.top);
+      mouse.x =
+        rect.width * 0.5 +
+        (event.clientX - rect.left - rect.width * 0.5) * mouseInfluence;
+      mouse.y =
+        rect.height * 0.5 +
+        (rect.height - (event.clientY - rect.top) - rect.height * 0.5) *
+          mouseInfluence;
     };
 
     const resizeCanvas = () => {
@@ -253,7 +259,7 @@ const StarNestBackground = ({ interactive, forceLowPower = false }) => {
         return;
       }
 
-      const frameInterval = ultraLowPowerMode ? 84 : lowPowerMode ? 42 : 33;
+      const frameInterval = ultraLowPowerMode ? 84 : lowPowerMode ? 42 : 16;
       if (frameInterval > 0 && now - lastRenderTime < frameInterval) {
         frameId = requestAnimationFrame(render);
         return;

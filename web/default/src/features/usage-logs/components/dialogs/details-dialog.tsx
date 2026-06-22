@@ -57,6 +57,7 @@ import {
   getUsageLogTokens,
   hasAnyCacheTokens,
   isViolationFeeLog,
+  shouldHideUsageLogTokens,
   getFirstResponseTimeColor,
   getResponseTimeColor,
 } from '../../lib/format'
@@ -340,6 +341,7 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const cacheWrite1h = other.cache_creation_tokens_1h || 0
   const hasTokens = promptTokens > 0 || completionTokens > 0
 
+  if (shouldHideUsageLogTokens(other)) return null
   if (!hasTokens) return null
 
   const rows: Array<{ label: string; value: string }> = []

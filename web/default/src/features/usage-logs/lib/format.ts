@@ -123,6 +123,18 @@ export function getUsageLogTokens(
   return { promptTokens, completionTokens }
 }
 
+export function shouldHideUsageLogTokens(other: LogOtherData | null): boolean {
+  if (!other) return false
+
+  const isImageGeneration =
+    other.request_path === '/v1/images/generations' ||
+    other.image_generation_call === true
+  const isFixedPriceBilling =
+    (other.model_price ?? 0) > 0 || other.billing_mode === 'tiered_expr'
+
+  return isImageGeneration && isFixedPriceBilling
+}
+
 /**
  * Get time color based on duration (in seconds)
  */

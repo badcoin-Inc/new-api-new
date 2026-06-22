@@ -344,6 +344,21 @@ function formatTokenCount(value) {
   return toTokenNumber(value).toLocaleString();
 }
 
+function shouldHideUsageTokens(record) {
+  const other = getLogOther(record?.other);
+  if (!other) {
+    return false;
+  }
+
+  const isImageGeneration =
+    other.request_path === '/v1/images/generations' ||
+    other.image_generation_call === true;
+  const isFixedPriceBilling =
+    toTokenNumber(other.model_price) > 0 || other.billing_mode === 'tiered_expr';
+
+  return isImageGeneration && isFixedPriceBilling;
+}
+
 function getPromptCacheSummary(other) {
   if (!other || typeof other !== 'object') {
     return null;
@@ -741,6 +756,10 @@ export const getLogsColumns = ({
       ),
       dataIndex: 'prompt_tokens',
       render: (text, record, index) => {
+        if (shouldHideUsageTokens(record)) {
+          return <></>;
+        }
+
         const other = getLogOther(record.other);
         const cacheSummary = getPromptCacheSummary(other);
         const hasCacheRead = (cacheSummary?.cacheReadTokens || 0) > 0;
@@ -790,6 +809,10 @@ export const getLogsColumns = ({
       title: t('输出'),
       dataIndex: 'completion_tokens',
       render: (text, record, index) => {
+        if (shouldHideUsageTokens(record)) {
+          return <></>;
+        }
+
         return parseInt(text) > 0 &&
           (record.type === 0 ||
             record.type === 2 ||
