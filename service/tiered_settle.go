@@ -120,6 +120,12 @@ func TryTieredSettle(relayInfo *relaycommon.RelayInfo, params billingexpr.TokenP
 		tr.ActualQuotaBeforeGroup *= multiplier
 		tr.ActualQuotaAfterGroup = billingexpr.QuotaRound(float64(tr.ActualQuotaAfterGroup) * multiplier)
 	}
+
+	// Surface any int32 saturation from settlement onto RelayInfo so the
+	// consume log records it under admin_info, regardless of which caller
+	// (text, audio, WSS) consumes the returned quota. First non-nil wins.
+	noteQuotaClamp(relayInfo, tr.Clamp)
+
 	return true, tr.ActualQuotaAfterGroup, &tr
 }
 
@@ -131,7 +137,7 @@ func tieredRequestQuantityMultiplier(relayInfo *relaycommon.RelayInfo, exprStr s
 	if request, ok := relayInfo.Request.(*dto.ImageRequest); ok && request.N != nil && *request.N > 0 {
 		requestQuantity = float64(*request.N)
 	}
-	if actualQuantity, ok := relayInfo.PriceData.OtherRatios["n"]; ok && actualQuantity > 0 {
+	if actualQuantity, ok := relayInfo.PriceData.OtherRatios()["n"]; ok && actualQuantity > 0 {
 		if tieredExprHandlesImageQuantity(exprStr) {
 			return actualQuantity / requestQuantity
 		}

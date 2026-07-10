@@ -56,7 +56,7 @@ import {
   Qingyan,
   DeepSeek,
   Qwen,
-  Midjourney,
+  Midjourney as MjProxyIcon,
   Grok,
   AzureAI,
   Hunyuan,
@@ -154,7 +154,7 @@ const Home = () => {
 
   return (
     <div
-      className={`w-full overflow-x-hidden ${isNebulaMode ? 'nebula-home' : ''}`}
+      className={`classic-page-fill classic-home-page w-full overflow-x-hidden ${isNebulaMode ? 'nebula-home' : ''}`}
     >
       <NoticeModal
         visible={noticeVisible}
@@ -162,9 +162,9 @@ const Home = () => {
         isMobile={isMobile}
       />
       {homePageContentLoaded && homePageContent === '' ? (
-        <div className='w-full overflow-x-hidden'>
+        <div className='classic-home-default w-full overflow-x-hidden'>
           {/* Banner 部分 */}
-          <div className='home-hero w-full border-b border-semi-color-border min-h-[500px] md:min-h-[600px] lg:min-h-[700px] relative overflow-x-hidden'>
+          <div className='classic-home-hero home-hero w-full border-b border-semi-color-border min-h-[500px] md:min-h-[600px] lg:min-h-[700px] relative overflow-x-hidden'>
             {/* 背景模糊晕染球 */}
             <div className='blur-ball blur-ball-indigo' />
             <div className='blur-ball blur-ball-teal' />
@@ -329,7 +329,7 @@ const Home = () => {
                         <Qwen.Color size={40} />
                       </div>
                       <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                        <Midjourney size={40} />
+                        <MjProxyIcon size={40} />
                       </div>
                       <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
                         <Grok size={40} />
@@ -356,7 +356,7 @@ const Home = () => {
           </div>
         </div>
       ) : (
-        <div className='overflow-x-hidden w-full'>
+        <div className='classic-page-fill overflow-x-hidden w-full'>
           {homePageContent.startsWith('https://') ? (
             <iframe
               src={homePageContent}

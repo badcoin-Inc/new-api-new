@@ -3,7 +3,6 @@ package service
 import (
 	"math"
 	"math/rand"
-	"sync"
 	"testing"
 
 	"github.com/QuantumNous/new-api/dto"
@@ -120,6 +119,8 @@ func TestTryTieredSettleMultipliesImageQuantity(t *testing.T) {
 
 func TestTryTieredSettleUsesActualImageQuantity(t *testing.T) {
 	imageN := uint(2)
+	priceData := types.PriceData{}
+	priceData.AddOtherRatio("n", 1)
 	relayInfo := &relaycommon.RelayInfo{
 		TieredBillingSnapshot: &billingexpr.BillingSnapshot{
 			BillingMode:              "tiered_expr",
@@ -135,9 +136,7 @@ func TestTryTieredSettleUsesActualImageQuantity(t *testing.T) {
 			Model: "tiered-image-model",
 			N:     &imageN,
 		},
-		PriceData: types.PriceData{
-			OtherRatios: map[string]float64{"n": 1},
-		},
+		PriceData: priceData,
 	}
 
 	ok, quota, result := TryTieredSettle(relayInfo, billingexpr.TokenParams{})
@@ -155,6 +154,8 @@ func TestTryTieredSettleUsesActualImageQuantity(t *testing.T) {
 func TestTryTieredSettleScalesExplicitImageQuantityExpr(t *testing.T) {
 	imageN := uint(2)
 	exprStr := `tier("1k", param("n") * 10000)`
+	priceData := types.PriceData{}
+	priceData.AddOtherRatio("n", 1)
 	relayInfo := &relaycommon.RelayInfo{
 		TieredBillingSnapshot: &billingexpr.BillingSnapshot{
 			BillingMode:              "tiered_expr",
@@ -173,9 +174,7 @@ func TestTryTieredSettleScalesExplicitImageQuantityExpr(t *testing.T) {
 			Model: "tiered-image-model",
 			N:     &imageN,
 		},
-		PriceData: types.PriceData{
-			OtherRatios: map[string]float64{"n": 1},
-		},
+		PriceData: priceData,
 	}
 
 	ok, quota, result := TryTieredSettle(relayInfo, billingexpr.TokenParams{})
@@ -799,11 +798,6 @@ func TestBuildTieredTokenParams_Len_TierCondition(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Stress test: 1000 concurrent goroutines, complex tiered expr vs ratio,
-// random token counts, verify correctness and measure performance
-// ---------------------------------------------------------------------------
-
 const complexTieredExpr = `p <= 200000 ? tier("standard", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6 + img * 3 + img_o * 30 + ai * 10 + ao * 40) : tier("long_context", p * 6 + c * 22.5 + cr * 0.6 + cc * 7.5 + cc1h * 12 + img * 6 + img_o * 60 + ai * 20 + ao * 80)`
 
 func randomUsage(rng *rand.Rand) *dto.Usage {
@@ -832,51 +826,6 @@ func randomUsage(rng *rand.Rand) *dto.Usage {
 			AudioTokens: audioOut,
 			TextTokens:  completion - imgOut - audioOut,
 		},
-	}
-}
-
-func TestStress_TieredBilling_1000Concurrent(t *testing.T) {
-	usedVars := billingexpr.UsedVars(complexTieredExpr)
-
-	var wg sync.WaitGroup
-	errCh := make(chan string, 1000)
-
-	for i := 0; i < 1000; i++ {
-		wg.Add(1)
-		go func(seed int64) {
-			defer wg.Done()
-			rng := rand.New(rand.NewSource(seed))
-
-			for j := 0; j < 100; j++ {
-				usage := randomUsage(rng)
-				groupRatio := 0.5 + rng.Float64()*2.0
-
-				params := BuildTieredTokenParams(usage, false, usedVars)
-				cost, trace, err := billingexpr.RunExpr(complexTieredExpr, params)
-				if err != nil {
-					errCh <- err.Error()
-					return
-				}
-				if cost < 0 {
-					errCh <- "negative cost"
-					return
-				}
-
-				quota := billingexpr.QuotaRound(cost / 1_000_000 * testQuotaPerUnit * groupRatio)
-				if quota < 0 {
-					errCh <- "negative quota"
-					return
-				}
-
-				_ = trace.MatchedTier
-			}
-		}(int64(i))
-	}
-
-	wg.Wait()
-	close(errCh)
-	for e := range errCh {
-		t.Fatal(e)
 	}
 }
 

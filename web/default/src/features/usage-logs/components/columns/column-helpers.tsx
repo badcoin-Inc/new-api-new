@@ -16,30 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/* eslint-disable react-refresh/only-export-components */
-import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Zap } from 'lucide-react'
-import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
-import { formatTimestampToDate, formatTokens } from '@/lib/format'
-import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+/* eslint-disable react-refresh/only-export-components */
+import { useState } from 'react'
+
+import { DataTableColumnHeader } from '@/components/data-table'
+import { StatusBadge } from '@/components/status-badge'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { DataTableColumnHeader } from '@/components/data-table'
-import { StatusBadge } from '@/components/status-badge'
+import { formatTimestampToDate, formatTokens } from '@/lib/format'
+import { cn } from '@/lib/utils'
+
 import { formatDuration } from '../../lib/format'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
-import { useUsageLogsContext } from '../usage-logs-provider'
-
-interface UserColumnLog {
-  user_id: number
-  username?: string
-}
 
 /**
  * Cache tooltip component for token display
@@ -106,36 +100,6 @@ export function createTimestampColumn<T>(config: {
 }
 
 /**
- * Duration pill colors matching common logs timing column
- */
-const durationPillBg: Record<string, string> = {
-  green:
-    'border border-emerald-200/60 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/25',
-  red: 'border border-rose-200/70 bg-rose-50/70 dark:border-rose-800/50 dark:bg-rose-950/25',
-  success:
-    'border border-emerald-200/60 bg-emerald-50/50 dark:border-emerald-800/50 dark:bg-emerald-950/20',
-  info: 'border border-sky-200/60 bg-sky-50/50 dark:border-sky-800/50 dark:bg-sky-950/20',
-  warning:
-    'border border-amber-200/60 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-950/20',
-}
-
-const durationTextColor: Record<string, string> = {
-  green: 'text-emerald-700 dark:text-emerald-400',
-  red: 'text-rose-700 dark:text-rose-400',
-  success: 'text-emerald-700 dark:text-emerald-400',
-  info: 'text-sky-700 dark:text-sky-400',
-  warning: 'text-amber-700 dark:text-amber-400',
-}
-
-const durationDotColor: Record<string, string> = {
-  green: 'bg-emerald-500',
-  red: 'bg-rose-500',
-  success: 'bg-emerald-500',
-  info: 'bg-sky-500',
-  warning: 'bg-amber-500',
-}
-
-/**
  * Create a duration column - pill style matching common logs timing
  */
 export function createDurationColumn<T>(config: {
@@ -171,25 +135,25 @@ export function createDurationColumn<T>(config: {
       }
 
       const variant =
-        duration.durationSec > warningThresholdSec ? 'red' : 'green'
+        duration.durationSec > warningThresholdSec ? 'danger' : 'success'
+
+      const durationBgMap: Record<string, string> = {
+        success:
+          'border border-emerald-200/40 bg-emerald-50/35 !text-emerald-600 dark:border-emerald-900/40 dark:bg-emerald-950/15 dark:!text-emerald-400',
+        warning:
+          'border border-amber-200/45 bg-amber-50/35 !text-amber-600 dark:border-amber-900/40 dark:bg-amber-950/15 dark:!text-amber-400',
+        danger:
+          'border border-rose-200/50 bg-rose-50/35 !text-red-600 dark:border-rose-900/40 dark:bg-rose-950/15 dark:!text-red-400',
+      }
 
       return (
-        <span
-          className={cn(
-            'inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs font-medium',
-            durationPillBg[variant],
-            durationTextColor[variant]
-          )}
-        >
-          <span
-            className={cn(
-              'size-1.5 shrink-0 rounded-full',
-              durationDotColor[variant]
-            )}
-            aria-hidden='true'
-          />
-          {duration.durationSec.toFixed(1)}s
-        </span>
+        <StatusBadge
+          label={`${duration.durationSec.toFixed(1)}s`}
+          variant={variant}
+          size='sm'
+          copyable={false}
+          className={cn('rounded-md font-mono', durationBgMap[variant])}
+        />
       )
     },
     meta: { label: headerLabel },
@@ -221,64 +185,12 @@ export function createChannelColumn<T>(config: {
           autoColor={String(channelId)}
           copyText={String(channelId)}
           size='sm'
+          showDot={false}
           className='font-mono'
         />
       )
     },
     meta: { label: headerLabel },
-  }
-}
-
-export function createUserColumn<T extends UserColumnLog>(config: {
-  headerLabel: string
-  fallbackToUserId?: boolean
-}): ColumnDef<T> {
-  const { headerLabel, fallbackToUserId = false } = config
-
-  return {
-    id: 'user',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={headerLabel} />
-    ),
-    cell: function UserCell({ row }) {
-      const { sensitiveVisible, setSelectedUserId, setUserInfoDialogOpen } =
-        useUsageLogsContext()
-      const log = row.original
-      const displayName =
-        log.username || (fallbackToUserId ? String(log.user_id || '?') : '')
-
-      if (!displayName) return null
-
-      return (
-        <button
-          type='button'
-          className='flex items-center gap-1.5 text-left'
-          onClick={(e) => {
-            e.stopPropagation()
-            setSelectedUserId(log.user_id)
-            setUserInfoDialogOpen(true)
-          }}
-        >
-          <Avatar className='ring-border/60 size-6 ring-1'>
-            <AvatarFallback
-              className={cn(
-                'text-[11px] font-semibold',
-                !sensitiveVisible && 'bg-muted text-muted-foreground'
-              )}
-              style={
-                sensitiveVisible ? getUserAvatarStyle(displayName) : undefined
-              }
-            >
-              {sensitiveVisible ? getUserAvatarFallback(displayName) : '•'}
-            </AvatarFallback>
-          </Avatar>
-          <span className='text-muted-foreground truncate text-sm hover:underline'>
-            {sensitiveVisible ? displayName : '••••'}
-          </span>
-        </button>
-      )
-    },
-    meta: { label: headerLabel, mobileHidden: true },
   }
 }
 
@@ -307,27 +219,16 @@ export function createFailReasonColumn<T>(config: {
 
       return (
         <>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type='button'
-                    className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
-                    onClick={() => setDialogOpen(true)}
-                    title={cellTitle}
-                  />
-                }
-              >
-                  <span className='line-clamp-3 whitespace-pre-wrap break-words leading-snug text-red-600 group-hover:underline dark:text-red-400'>
-                    {failReason}
-                  </span>
-              </TooltipTrigger>
-              <TooltipContent className='max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap break-words text-xs'>
-                {failReason}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <button
+            type='button'
+            className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+            onClick={() => setDialogOpen(true)}
+            title={cellTitle}
+          >
+            <span className='truncate leading-snug text-red-600 group-hover:underline dark:text-red-400'>
+              {failReason}
+            </span>
+          </button>
           <FailReasonDialog
             failReason={failReason}
             open={dialogOpen}

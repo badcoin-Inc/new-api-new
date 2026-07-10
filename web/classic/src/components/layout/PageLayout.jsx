@@ -81,6 +81,7 @@ const PageLayout = () => {
     isNebulaMode && ['/', '/login', '/register'].includes(location.pathname);
   const [hideNebulaHomeContent, setHideNebulaHomeContent] = useState(false);
   const nebulaHomeIdleTimerRef = useRef(null);
+  const isFixedLayout = isConsoleRoute || location.pathname === '/pricing';
   const shouldStretchNebulaPanel = [
     '/console',
     '/console/personal',
@@ -207,11 +208,11 @@ const PageLayout = () => {
 
   return (
     <Layout
-      className='app-layout'
+      className={`app-layout${isFixedLayout ? ' app-layout-fixed' : ''}`}
       style={{
         display: 'flex',
         flexDirection: 'column',
-        overflow: isMobile ? 'visible' : 'hidden',
+        overflow: isFixedLayout && !isMobile ? 'hidden' : 'visible',
       }}
     >
       {isNebulaMode && (
@@ -240,10 +241,11 @@ const PageLayout = () => {
       </Header>
       <Layout
         style={{
-          overflow: isMobile ? 'visible' : 'auto',
+          overflow: isFixedLayout && !isMobile ? 'auto' : 'visible',
           display: 'flex',
           flexDirection: 'column',
           marginTop: '64px',
+          flex: '1 1 auto',
         }}
       >
         {showSider && (
@@ -285,15 +287,23 @@ const PageLayout = () => {
                 ? nebulaHomeFadeClass
                 : isNebulaMode && isConsoleRoute
                   ? `nebula-console-panel${shouldStretchNebulaPanel ? ' nebula-console-panel-stretch' : ''}`
-                  : undefined
+                  : isFixedLayout
+                    ? undefined
+                    : 'public-page-content'
             }
             style={{
-              flex: '1 0 auto',
-              overflowY: isMobile || isNebulaMode ? 'visible' : 'hidden',
+              flex: isFixedLayout ? '1 0 auto' : '1 1 auto',
+              overflowY:
+                isMobile || isNebulaMode
+                  ? 'visible'
+                  : isFixedLayout
+                    ? 'hidden'
+                    : 'visible',
               WebkitOverflowScrolling: 'touch',
               padding: shouldInnerPadding ? (isMobile ? '5px' : '24px') : '0',
               position: 'relative',
               zIndex: isNebulaMode ? 1 : undefined,
+              minHeight: 0,
             }}
           >
             <ErrorBoundary>

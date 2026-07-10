@@ -116,6 +116,9 @@ jobs:
       packages: write
       contents: read
 
+    permissions:
+      id-token: write
+
     steps:
       - name: Normalize GHCR repository
         run: echo "GHCR_REPOSITORY=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
@@ -143,6 +146,14 @@ jobs:
             -t ghcr.io/${GHCR_REPOSITORY}:latest \
             ghcr.io/${GHCR_REPOSITORY}:latest-amd64 \
             ghcr.io/${GHCR_REPOSITORY}:latest-arm64
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign manifests with cosign
+        run: |
+          cosign sign --yes calciumion/new-api:${TAG}
+          cosign sign --yes calciumion/new-api:latest
 
       - name: Manifest summary
         run: |

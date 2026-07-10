@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Blend,
@@ -36,10 +35,12 @@ import {
   ZoomIn,
   type LucideIcon,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { formatTimestampToDate } from '@/lib/format'
-import { DataTableColumnHeader } from '@/components/data-table'
+
 import { StatusBadge } from '@/components/status-badge'
+import { formatTimestampToDate } from '@/lib/format'
+
 import { MJ_TASK_TYPES } from '../../constants'
 import {
   mjTaskTypeMapper,
@@ -47,11 +48,11 @@ import {
   mjSubmitResultMapper,
 } from '../../lib/mappers'
 import type { MidjourneyLog } from '../../types'
+import { ImageDialog } from '../dialogs/image-dialog'
 import { PromptDialog } from '../dialogs/prompt-dialog'
 import {
   createDurationColumn,
   createChannelColumn,
-  createUserColumn,
   createProgressColumn,
   createFailReasonColumn,
 } from './column-helpers'
@@ -80,20 +81,6 @@ function getDrawingTypeIcon(action: string): LucideIcon {
   return drawingTypeIconMap[action] ?? HelpCircle
 }
 
-function formatImageUrlLabel(imageUrl: string): string {
-  try {
-    const url = new URL(imageUrl)
-    const label = `${url.host}${url.pathname}`
-    return label.length > 44
-      ? `${label.slice(0, 24)}...${label.slice(-16)}`
-      : label
-  } catch {
-    return imageUrl.length > 44
-      ? `${imageUrl.slice(0, 24)}...${imageUrl.slice(-16)}`
-      : imageUrl
-  }
-}
-
 export function useDrawingLogsColumns(
   isAdmin: boolean
 ): ColumnDef<MidjourneyLog>[] {
@@ -101,17 +88,15 @@ export function useDrawingLogsColumns(
   const columns: ColumnDef<MidjourneyLog>[] = [
     {
       accessorKey: 'submit_time',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Submit Time')} />
-      ),
+      header: t('Submit Time'),
       cell: ({ row }) => {
         const log = row.original
         const submitTime = row.getValue('submit_time') as number
 
         return (
-          <div className='flex flex-col gap-0.5'>
-            <span className='font-mono text-xs tabular-nums'>
-              {formatTimestampToDate(submitTime)}
+          <div className='flex min-w-0 flex-col gap-0.5'>
+            <span className='truncate font-mono text-xs tabular-nums'>
+              {formatTimestampToDate(submitTime, 'milliseconds')}
             </span>
             <StatusBadge
               label={t(mjStatusMapper.getLabel(log.status))}
@@ -122,22 +107,19 @@ export function useDrawingLogsColumns(
           </div>
         )
       },
-      meta: { label: t('Submit Time') },
+      size: 180,
     },
   ]
 
   if (isAdmin) {
     columns.push(
-      createChannelColumn<MidjourneyLog>({ headerLabel: t('Channel') }),
-      createUserColumn<MidjourneyLog>({ headerLabel: t('User') })
+      createChannelColumn<MidjourneyLog>({ headerLabel: t('Channel') })
     )
   }
 
   columns.push({
     accessorKey: 'action',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={t('Type')} />
-    ),
+    header: t('Type'),
     cell: ({ row }) => {
       const action = row.getValue('action') as string
       return (
@@ -147,18 +129,15 @@ export function useDrawingLogsColumns(
           icon={getDrawingTypeIcon(action)}
           size='sm'
           copyable={false}
-          showDot={false}
+          className='-ml-1.5'
         />
       )
     },
-    meta: { label: t('Type') },
   })
 
   columns.push({
     accessorKey: 'mj_id',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={t('Task ID')} />
-    ),
+    header: t('Task ID'),
     cell: ({ row }) => {
       const mjId = row.getValue('mj_id') as string
 
@@ -170,15 +149,15 @@ export function useDrawingLogsColumns(
         <div className='flex max-w-[160px] flex-col gap-0.5'>
           <StatusBadge
             label={mjId}
-            autoColor={mjId}
+            copyText={mjId}
+            variant='neutral'
             size='sm'
-            showDot={false}
-            className='border-border/60 bg-muted/30 max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
+            className='border-border/60 bg-muted/30 !text-foreground max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
           />
         </div>
       )
     },
-    meta: { label: t('Task ID'), mobileTitle: true },
+    meta: { mobileTitle: true },
   })
 
   columns.push(
@@ -192,9 +171,7 @@ export function useDrawingLogsColumns(
   if (isAdmin) {
     columns.push({
       accessorKey: 'code',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Submit Result')} />
-      ),
+      header: t('Submit Result'),
       cell: ({ row }) => {
         const code = row.getValue('code') as number
 
@@ -204,11 +181,10 @@ export function useDrawingLogsColumns(
             variant={mjSubmitResultMapper.getVariant(String(code))}
             size='sm'
             copyable={false}
-            showDot
+            className='-ml-1.5'
           />
         )
       },
-      meta: { label: t('Submit Result') },
     })
   }
 
@@ -216,44 +192,41 @@ export function useDrawingLogsColumns(
     createProgressColumn<MidjourneyLog>({ headerLabel: t('Progress') }),
     {
       accessorKey: 'image_url',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Image')} />
-      ),
+      header: t('Image'),
       cell: function ImageCell({ row }) {
+        const log = row.original
         const imageUrl = row.getValue('image_url') as string
+        const [dialogOpen, setDialogOpen] = useState(false)
 
         if (!imageUrl) {
           return <span className='text-muted-foreground/60 text-xs'>-</span>
         }
 
         return (
-          <div className='flex max-w-[220px] items-center gap-1.5'>
-            <a
-              className='text-foreground truncate text-xs leading-snug hover:underline'
-              href={imageUrl}
-              target='_blank'
-              rel='noreferrer'
-              title={imageUrl}
+          <>
+            <button
+              type='button'
+              className='group text-left text-xs'
+              onClick={() => setDialogOpen(true)}
+              title={t('Click to view image')}
             >
-              {formatImageUrlLabel(imageUrl)}
-            </a>
-            <StatusBadge
-              label={t('Copy')}
-              copyText={imageUrl}
-              size='sm'
-              showDot={false}
-              className='border-border/60 bg-muted/30 rounded-md border px-1.5 py-0.5'
+              <span className='text-foreground truncate leading-snug group-hover:underline'>
+                {t('View')}
+              </span>
+            </button>
+            <ImageDialog
+              imageUrl={imageUrl}
+              taskId={log.mj_id}
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
             />
-          </div>
+          </>
         )
       },
-      meta: { label: t('Image'), mobileHidden: true },
     },
     {
       accessorKey: 'prompt',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Prompt')} />
-      ),
+      header: t('Prompt'),
       cell: function PromptCell({ row }) {
         const log = row.original
         const prompt = row.getValue('prompt') as string
@@ -267,11 +240,11 @@ export function useDrawingLogsColumns(
           <>
             <button
               type='button'
-              className='group flex max-w-[260px] items-center text-left text-xs'
+              className='group flex max-w-[220px] items-center text-left text-xs'
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full prompt')}
             >
-              <span className='text-muted-foreground line-clamp-3 whitespace-pre-wrap break-words text-[11px] leading-tight group-hover:underline'>
+              <span className='text-muted-foreground truncate leading-snug group-hover:underline'>
                 {prompt}
               </span>
             </button>
@@ -284,9 +257,8 @@ export function useDrawingLogsColumns(
           </>
         )
       },
-      meta: { label: t('Prompt'), mobileHidden: true },
-      size: 260,
-      maxSize: 320,
+      size: 200,
+      maxSize: 220,
     },
     createFailReasonColumn<MidjourneyLog>({
       headerLabel: t('Fail Reason'),
