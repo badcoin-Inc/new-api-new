@@ -115,8 +115,6 @@ jobs:
     permissions:
       packages: write
       contents: read
-
-    permissions:
       id-token: write
 
     steps:
@@ -152,8 +150,8 @@ jobs:
 
       - name: Sign manifests with cosign
         run: |
-          cosign sign --yes calciumion/new-api:${TAG}
-          cosign sign --yes calciumion/new-api:latest
+          cosign sign --yes ghcr.io/${GHCR_REPOSITORY}:${TAG}
+          cosign sign --yes ghcr.io/${GHCR_REPOSITORY}:latest
 
       - name: Manifest summary
         run: |
