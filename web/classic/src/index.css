@@ -1237,6 +1237,20 @@ html:not(.dark) .blur-ball-teal {
   .nebula-home .home-hero-description {
     margin-top: 1.5rem !important;
   }
+
+  .home-base-url-input .semi-input {
+    font-size: 12px;
+  }
+
+  .home-base-url-input .semi-input-suffix {
+    font-size: 11px;
+  }
+
+  .home-base-url-input .semi-button {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+  }
 }
 
 /* ==================== 卡片马卡龙模糊球（类封装） ==================== */
@@ -1390,6 +1404,12 @@ html.dark .with-pastel-balls::before {
   height: calc(100vh - 60px);
   overflow: hidden;
   margin-top: 60px;
+}
+
+@media (max-width: 767px) {
+  .pricing-layout.semi-layout {
+    padding-top: 0 !important;
+  }
 }
 
 .pricing-sidebar {

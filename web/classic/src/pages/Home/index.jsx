@@ -153,7 +153,9 @@ const Home = () => {
   }, [endpointItems.length, isNebulaMode]);
 
   return (
-    <div className={`w-full overflow-x-hidden ${isNebulaMode ? 'nebula-home' : ''}`}>
+    <div
+      className={`w-full overflow-x-hidden ${isNebulaMode ? 'nebula-home' : ''}`}
+    >
       <NoticeModal
         visible={noticeVisible}
         onClose={() => setNoticeVisible(false)}
@@ -180,7 +182,9 @@ const Home = () => {
                       <>
                         {t('统一的')}
                         <br />
-                        <span className='shine-text'>{t('大模型接口网关')}</span>
+                        <span className='shine-text'>
+                          {t('大模型接口网关')}
+                        </span>
                       </>
                     )}
                   </h1>
@@ -196,7 +200,7 @@ const Home = () => {
                       <Input
                         readonly
                         value={serverAddress}
-                        className='flex-1 !rounded-full'
+                        className='home-base-url-input flex-1 !rounded-full'
                         size={isMobile ? 'default' : 'large'}
                         suffix={
                           <div className='flex items-center gap-2'>
@@ -209,7 +213,9 @@ const Home = () => {
                                 cycled={true}
                                 list={endpointItems}
                                 selectedIndex={endpointIndex}
-                                onSelect={({ index }) => setEndpointIndex(index)}
+                                onSelect={({ index }) =>
+                                  setEndpointIndex(index)
+                                }
                               />
                             </ScrollList>
                             <Button
@@ -345,7 +351,6 @@ const Home = () => {
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           </div>

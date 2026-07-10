@@ -19,12 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { memo, useCallback } from 'react';
 import { Input, Button, Switch, Select, Divider } from '@douyinfe/semi-ui';
-import { IconSearch, IconCopy, IconFilter } from '@douyinfe/semi-icons';
+import { IconSearch, IconFilter } from '@douyinfe/semi-icons';
 
 const SearchActions = memo(
   ({
-    selectedRowKeys = [],
-    copyText,
     handleChange,
     handleCompositionStart,
     handleCompositionEnd,
@@ -45,12 +43,6 @@ const SearchActions = memo(
     t,
   }) => {
     const supportsCurrencyDisplay = siteDisplayType !== 'TOKENS';
-
-    const handleCopyClick = useCallback(() => {
-      if (copyText && selectedRowKeys.length > 0) {
-        copyText(selectedRowKeys);
-      }
-    }, [copyText, selectedRowKeys]);
 
     const handleFilterClick = useCallback(() => {
       setShowFilterModal?.(true);
@@ -78,17 +70,6 @@ const SearchActions = memo(
           />
         </div>
 
-        <Button
-          theme='outline'
-          type='primary'
-          icon={<IconCopy />}
-          onClick={handleCopyClick}
-          disabled={selectedRowKeys.length === 0}
-          className='!bg-blue-500 hover:!bg-blue-600 !text-white disabled:!bg-gray-300 disabled:!text-gray-500'
-        >
-          {t('复制')}
-        </Button>
-
         {!isMobile && (
           <>
             <Divider layout='vertical' margin='8px' />
@@ -96,7 +77,9 @@ const SearchActions = memo(
             {/* 充值价格显示开关 */}
             {supportsCurrencyDisplay && (
               <div className='flex items-center gap-2'>
-                <span className='text-sm text-gray-600'>{t('充值价格显示')}</span>
+                <span className='text-sm text-gray-600'>
+                  {t('充值价格显示')}
+                </span>
                 <Switch
                   checked={showWithRecharge}
                   onChange={setShowWithRecharge}

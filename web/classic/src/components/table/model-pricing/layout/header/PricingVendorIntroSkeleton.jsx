@@ -179,15 +179,6 @@ const PricingVendorIntroSkeleton = memo(
             )}
           </div>
 
-          {createSkeletonRect(
-            {
-              ...SKELETON_STYLES.button,
-              width: SIZES.button.width,
-              height: SIZES.button.height,
-            },
-            'copy-button',
-          )}
-
           {isMobile &&
             createSkeletonRect(
               {

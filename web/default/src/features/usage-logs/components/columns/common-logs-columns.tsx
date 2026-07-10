@@ -93,10 +93,18 @@ function getGroupRatioText(other: LogOtherData | null): string | null {
 function buildDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
+  isAdmin: boolean,
   t: (key: string, opts?: Record<string, unknown>) => string
 ): DetailSegment[] {
   if (log.type === 6) {
     return [{ text: t('Async task refund') }]
+  }
+
+  if (log.type === 5) {
+    if (isAdmin && other?.admin_info?.raw_error) {
+      return [{ text: other.admin_info.raw_error, danger: true }]
+    }
+    return log.content ? [{ text: log.content, danger: true }] : []
   }
 
   if (log.type !== 2) return []
@@ -717,7 +725,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const log = row.original
         const other = parseLogOther(log.other)
 
-        const segments = buildDetailSegments(log, other, t)
+        const segments = buildDetailSegments(log, other, isAdmin, t)
         const primary = segments[0]
         const hasMore = segments.length > 1
 

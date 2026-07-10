@@ -98,6 +98,7 @@ export interface LogOtherData {
     multi_key_index?: number
     use_channel?: number[]
     local_count_tokens?: boolean
+    raw_error?: string
     channel_affinity?: ChannelAffinityInfo
     // Top-up audit fields (type=1, admin only)
     payment_method?: string
