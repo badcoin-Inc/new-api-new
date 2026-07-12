@@ -63,6 +63,7 @@ const PageLayout = () => {
     '/console/task',
     '/console/generation_jobs',
     '/console/models',
+    '/console/playground',
     '/pricing',
   ];
 
@@ -86,6 +87,7 @@ const PageLayout = () => {
     '/console',
     '/console/personal',
     '/console/deployment',
+    '/console/playground',
     '/console/setting',
   ].includes(location.pathname);
 
