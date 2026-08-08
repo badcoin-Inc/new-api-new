@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/relay"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -89,7 +90,7 @@ func createGenerationJob(c *gin.Context, jobPath string) {
 		}
 	}
 
-	priceSnapshot, err := common.Marshal(priceData)
+	priceSnapshot, err := generationJobPriceSnapshot(priceData)
 	if err != nil {
 		if relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(c)
@@ -122,6 +123,27 @@ func createGenerationJob(c *gin.Context, jobPath string) {
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"id": job.JobID, "status": job.Status, "next_retry_at": job.NextRetryAt})
+}
+
+func generationJobPriceSnapshot(priceData types.PriceData) ([]byte, error) {
+	if priceData.BillingRequestInput != nil && priceData.TieredBillingSnapshot != nil {
+		priceData.TieredBillingSnapshot.RequestHeaders = billingexpr.TrimRequestHeadersForStorage(
+			priceData.TieredBillingSnapshot.ExprString,
+			priceData.BillingRequestInput.Headers,
+		)
+	}
+	priceData.BillingRequestInput = nil
+
+	encoded, err := common.Marshal(priceData)
+	if err != nil {
+		return nil, err
+	}
+	var stored map[string]json.RawMessage
+	if err := common.Unmarshal(encoded, &stored); err != nil {
+		return nil, err
+	}
+	delete(stored, "BillingRequestInput")
+	return common.Marshal(stored)
 }
 
 func generationJobImageCount(imageReq *dto.ImageRequest) int {
@@ -528,6 +550,7 @@ func runGenerationJobRequest(job *model.GenerationJob) (int, []byte, int, int, s
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	defer common.CleanupBodyStorage(c)
 	reqCtx := context.Background()
 	if deadline := generationJobDeadline(job); !deadline.IsZero() {
 		var cancel context.CancelFunc
@@ -560,7 +583,6 @@ func runGenerationJobRequest(job *model.GenerationJob) (int, []byte, int, int, s
 	relayInfo.ForcePreConsume = true
 	relayInfo.PriceData = priceData
 	relayInfo.TieredBillingSnapshot = priceData.TieredBillingSnapshot
-	relayInfo.BillingRequestInput = priceData.BillingRequestInput
 	relayInfo.FinalPreConsumedQuota = job.PreConsumedQuota
 	relayInfo.Billing = billing
 	relayInfo.BillingSource = job.BillingSource
@@ -568,6 +590,9 @@ func runGenerationJobRequest(job *model.GenerationJob) (int, []byte, int, int, s
 	relayInfo.ChannelId = job.ChannelId
 	relayInfo.TokenId = job.TokenId
 	relayInfo.OriginModelName = job.Model
+	if err := restoreGenerationJobBillingRequestInput(c, relayInfo); err != nil {
+		return 0, nil, 0, 0, "", err
+	}
 
 	newAPIError := relay.ImageHelper(c, relayInfo)
 	if newAPIError != nil {
@@ -579,6 +604,24 @@ func runGenerationJobRequest(job *model.GenerationJob) (int, []byte, int, int, s
 		logger.LogWarn(reqCtx, fmt.Sprintf("store generation job image results failed job=%s: %s", job.JobID, storageErr.Error()))
 	}
 	return w.Code, storedResponseBody, parseRecorderRetryAfter(w), billing.actualQuota, "", nil
+}
+
+func restoreGenerationJobBillingRequestInput(c *gin.Context, relayInfo *relaycommon.RelayInfo) error {
+	if relayInfo == nil || relayInfo.TieredBillingSnapshot == nil {
+		return nil
+	}
+	input, err := helper.ResolveIncomingBillingExprRequestInput(c, relayInfo)
+	if err != nil {
+		return err
+	}
+	for key, value := range relayInfo.TieredBillingSnapshot.RequestHeaders {
+		if input.Headers == nil {
+			input.Headers = make(map[string]string)
+		}
+		input.Headers[key] = value
+	}
+	relayInfo.BillingRequestInput = &input
+	return nil
 }
 
 type generationJobBillingSession struct {

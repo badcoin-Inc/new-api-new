@@ -173,7 +173,39 @@ func storeGenerationJobImageResults(ctx context.Context, responseBody []byte, cf
 		return true
 	})
 
+	if resultErr == nil {
+		// The worker only needs downloadable image metadata after R2 upload;
+		// omit provider usage and prompt fields from the persisted result.
+		compacted, err := compactGenerationJobImageResponse(rewritten)
+		if err != nil {
+			return rewritten, err
+		}
+		rewritten = compacted
+	}
 	return rewritten, resultErr
+}
+
+func compactGenerationJobImageResponse(responseBody []byte) ([]byte, error) {
+	data := gjson.GetBytes(responseBody, "data")
+	if !data.IsArray() {
+		return responseBody, nil
+	}
+	images := make([]map[string]any, 0)
+	data.ForEach(func(_ gjson.Result, value gjson.Result) bool {
+		image := make(map[string]any)
+		if url := strings.TrimSpace(value.Get("url").String()); url != "" {
+			image["url"] = url
+		}
+		if expiresAt := value.Get("expires_at"); expiresAt.Exists() {
+			image["expires_at"] = expiresAt.Int()
+		}
+		if mimeType := strings.TrimSpace(value.Get("mime_type").String()); mimeType != "" {
+			image["mime_type"] = mimeType
+		}
+		images = append(images, image)
+		return true
+	})
+	return common.Marshal(map[string]any{"data": images})
 }
 
 func decodeGenerationJobImageResult(raw string) ([]byte, string, error) {

@@ -25,8 +25,8 @@ func TestStoreGenerationJobImageResultsKeepsUpstreamURL(t *testing.T) {
 	assert.False(t, uploadCalled)
 	assert.Equal(t, "https://upstream.example/image.png", gjson.GetBytes(rewritten, "data.0.url").String())
 	assert.False(t, gjson.GetBytes(rewritten, "data.0.b64_json").Exists())
-	assert.Equal(t, "cat", gjson.GetBytes(rewritten, "data.0.revised_prompt").String())
-	assert.Equal(t, int64(3), gjson.GetBytes(rewritten, "usage.total_tokens").Int())
+	assert.False(t, gjson.GetBytes(rewritten, "data.0.revised_prompt").Exists())
+	assert.False(t, gjson.GetBytes(rewritten, "usage").Exists())
 }
 
 func TestStoreGenerationJobImageResultsPrefersBase64WhenURLAlsoPresent(t *testing.T) {

@@ -51,6 +51,10 @@ type BillingSnapshot struct {
 	EstimatedTier             string  `json:"estimated_tier"`
 	QuotaPerUnit              float64 `json:"quota_per_unit"`
 	ExprVersion               int     `json:"expr_version"`
+	// RequestHeaders contains only non-sensitive headers referenced by the
+	// frozen expression. It lets asynchronous jobs settle consistently without
+	// persisting their full request input.
+	RequestHeaders map[string]string `json:"request_headers,omitempty"`
 }
 
 // TieredResult holds everything needed after running tiered settlement.
