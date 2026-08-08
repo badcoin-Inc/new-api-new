@@ -140,7 +140,19 @@ func generationJobRequestBody(c *gin.Context, jobPath string, imageReq *dto.Imag
 	if err != nil {
 		return nil, err
 	}
-	return storage.Bytes()
+
+	// Generation jobs persist the original request for worker retries. Keep the
+	// output contract stable even when a caller omits response_format.
+	var requestBody map[string]json.RawMessage
+	if err := common.Unmarshal(storage.Bytes(), &requestBody); err != nil {
+		return nil, err
+	}
+	responseFormat, err := common.Marshal("url")
+	if err != nil {
+		return nil, err
+	}
+	requestBody["response_format"] = responseFormat
+	return common.Marshal(requestBody)
 }
 
 func uploadMultipartImage(c *gin.Context, fileHeader *multipart.FileHeader) (string, error) {

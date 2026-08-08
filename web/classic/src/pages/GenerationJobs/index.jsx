@@ -176,6 +176,7 @@ const GenerationJobs = () => {
             prompt: createForm.prompt.trim(),
             size: getCreateJobSize(createForm),
             n: createForm.n,
+            response_format: 'url',
             images,
           },
           {
@@ -191,6 +192,7 @@ const GenerationJobs = () => {
             prompt: createForm.prompt.trim(),
             size: getCreateJobSize(createForm),
             n: createForm.n,
+            response_format: 'url',
           },
           { headers: { Authorization: authHeader }, skipErrorHandler: true },
         );
