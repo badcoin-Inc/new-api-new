@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Check, Moon, Sun } from 'lucide-react'
+import { Check, Moon, Sparkles, Sun } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -37,7 +37,9 @@ export function ThemeSwitch() {
   /* Update theme-color meta tag
    * when theme is updated */
   useEffect(() => {
-    const themeColor = theme === 'dark' ? '#020817' : '#fff'
+    let themeColor = '#fff'
+    if (theme === 'dark') themeColor = '#020817'
+    if (theme === 'nebula') themeColor = '#02030a'
     const metaThemeColor = document.querySelector("meta[name='theme-color']")
     if (metaThemeColor) metaThemeColor.setAttribute('content', themeColor)
   }, [theme])
@@ -71,6 +73,14 @@ export function ThemeSwitch() {
           <Check
             size={14}
             className={cn('ms-auto', theme !== 'system' && 'hidden')}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme('nebula')}>
+          <Sparkles size={14} />
+          {t('Nebula')}
+          <Check
+            size={14}
+            className={cn('ms-auto', theme !== 'nebula' && 'hidden')}
           />
         </DropdownMenuItem>
       </DropdownMenuContent>

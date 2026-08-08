@@ -18,8 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Radio as RadioPrimitive } from '@base-ui/react/radio'
 import { RadioGroup as Radio } from '@base-ui/react/radio-group'
-import { CircleCheck, Palette, RotateCcw } from 'lucide-react'
-import { type SVGProps } from 'react'
+import { CircleCheck, Palette, RotateCcw, Sparkles } from 'lucide-react'
+import type { SVGProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { IconDir } from '@/assets/custom/icon-dir'
@@ -65,6 +65,10 @@ import { cn } from '@/lib/utils'
 import { useSidebar } from './ui/sidebar'
 
 const Item = RadioPrimitive.Root
+
+function IconThemeNebula(props: SVGProps<SVGSVGElement>) {
+  return <Sparkles {...props} />
+}
 
 export function ConfigDrawer() {
   const { t } = useTranslation()
@@ -224,7 +228,7 @@ function ThemeConfig() {
       <Radio
         value={theme}
         onValueChange={setTheme}
-        className='grid w-full max-w-md grid-cols-3 gap-4'
+        className='grid w-full max-w-md grid-cols-2 gap-4 sm:grid-cols-4'
         aria-label={t('Select theme preference')}
         aria-describedby='theme-description'
       >
@@ -232,6 +236,7 @@ function ThemeConfig() {
           { value: 'system', label: t('System'), icon: IconThemeSystem },
           { value: 'light', label: t('Light'), icon: IconThemeLight },
           { value: 'dark', label: t('Dark'), icon: IconThemeDark },
+          { value: 'nebula', label: t('Nebula'), icon: IconThemeNebula },
         ].map((item) => (
           <RadioGroupItem key={item.value} item={item} isTheme />
         ))}

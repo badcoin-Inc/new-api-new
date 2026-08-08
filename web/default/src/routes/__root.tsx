@@ -16,26 +16,34 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type QueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import {
   createRootRouteWithContext,
   Outlet,
   redirect,
+  useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 
 import { NavigationProgress } from '@/components/navigation-progress'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
+import { useTheme } from '@/context/theme-provider'
 import { saveAffiliateCode } from '@/features/auth/lib/storage'
 import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
 import { getSetupStatus } from '@/features/setup/api'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
+const NebulaBackground = lazy(() => import('@/components/nebula-background'))
+
 function RootComponent() {
+  const { theme } = useTheme()
+  const isHomePage = useRouterState({
+    select: (state) => state.location.pathname === '/',
+  })
   // Load system configuration (logo, system name, etc.) from backend
   useSystemConfig({ autoLoad: true })
 
@@ -48,6 +56,14 @@ function RootComponent() {
 
   return (
     <ThemeCustomizationProvider>
+      {theme === 'nebula' && (
+        <Suspense fallback={null}>
+          <NebulaBackground
+            interactive={isHomePage}
+            forceLowPower={!isHomePage}
+          />
+        </Suspense>
+      )}
       <NavigationProgress />
       <Outlet />
       <Toaster closeButton duration={5000} position='top-center' richColors />

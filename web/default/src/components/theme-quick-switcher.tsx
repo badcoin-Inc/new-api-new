@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Monitor, Sun, MoonStar } from 'lucide-react'
+import { Monitor, MoonStar, Sparkles, Sun } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
@@ -122,6 +122,33 @@ export function ThemeQuickSwitcher() {
               />
             )}
             <MoonStar className='relative z-10 size-[0.95rem]' />
+          </Button>
+          <Button
+            variant='ghost'
+            size='icon'
+            role='radio'
+            aria-label={t('Nebula')}
+            aria-checked={theme === 'nebula'}
+            onClick={() => setTheme('nebula')}
+            className={cn(
+              'relative size-7',
+              theme === 'nebula' && 'text-accent-foreground'
+            )}
+          >
+            {theme === 'nebula' && (
+              <motion.span
+                layoutId='theme-switcher-active'
+                className='bg-accent ring-border absolute inset-0 rounded-md ring-1'
+                transition={{
+                  type: 'spring',
+                  stiffness: 500,
+                  damping: 30,
+                  mass: 0.2,
+                }}
+                animate={{ rotate: 360 }}
+              />
+            )}
+            <Sparkles className='relative z-10 size-[0.95rem]' />
           </Button>
         </div>
       </div>

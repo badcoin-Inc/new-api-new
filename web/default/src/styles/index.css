@@ -85,6 +85,282 @@ For commercial licensing, please contact support@quantumnous.com
   }
 }
 
+.nebula {
+  --background: oklch(0.16 0.025 255 / 72%);
+  --card: oklch(0.2 0.03 255 / 76%);
+  --popover: oklch(0.2 0.03 255 / 94%);
+  --secondary: oklch(0.29 0.035 250 / 82%);
+  --muted: oklch(0.25 0.03 250 / 78%);
+  --accent: oklch(0.36 0.055 245 / 82%);
+  --border: oklch(0.9 0.03 245 / 14%);
+  --input: oklch(0.9 0.03 245 / 18%);
+  --sidebar: oklch(0.17 0.028 255 / 66%);
+  --sidebar-accent: oklch(0.34 0.05 245 / 72%);
+  --sidebar-border: oklch(0.9 0.03 245 / 13%);
+}
+
+.nebula body,
+.nebula [data-slot='sidebar-wrapper'],
+.nebula [data-slot='sidebar-inset'] {
+  background: transparent;
+}
+
+.nebula #root {
+  isolation: isolate;
+}
+
+.nebula #root > :not(.nebula-background) {
+  position: relative;
+  z-index: 1;
+}
+
+.nebula [data-slot='sidebar-inner'],
+.nebula header {
+  border-color: var(--border);
+  background: rgb(7 12 24 / 34%);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 7%);
+  backdrop-filter: blur(28px) saturate(1.12);
+  -webkit-backdrop-filter: blur(28px) saturate(1.12);
+}
+
+@media (min-width: 768px) {
+  .nebula [data-slot='sidebar-gap'],
+  .nebula [data-slot='sidebar-container'] {
+    width: calc(var(--sidebar-width) + 48px);
+  }
+
+  .nebula
+    [data-slot='sidebar'][data-collapsible='icon']
+    [data-slot='sidebar-gap'],
+  .nebula
+    [data-slot='sidebar'][data-collapsible='icon']
+    [data-slot='sidebar-container'] {
+    width: calc(var(--sidebar-width-icon) + 48px);
+  }
+
+  .nebula
+    [data-slot='sidebar'][data-collapsible='offcanvas']
+    [data-slot='sidebar-gap'] {
+    width: 0;
+  }
+
+  .nebula [data-slot='sidebar-container'] {
+    box-sizing: border-box;
+    padding: 24px;
+  }
+
+  .nebula [data-slot='sidebar-inner'] {
+    overflow: hidden;
+    border: 1px solid rgb(244 248 252 / 10%);
+    outline: 1px solid rgb(244 248 252 / 8%);
+    outline-offset: -1px;
+    border-radius: 18px;
+    box-shadow:
+      inset 0 1px 0 rgb(244 248 252 / 12%),
+      0 28px 80px rgb(0 0 0 / 30%);
+  }
+
+  .nebula [data-slot='sidebar-inset'] {
+    box-sizing: border-box;
+    height: calc(100svh - var(--app-header-height, 0px) - 48px);
+    margin: 24px 24px 24px 0;
+    overflow: hidden;
+    border: 1px solid rgb(244 248 252 / 10%);
+    outline: 1px solid rgb(244 248 252 / 8%);
+    outline-offset: -1px;
+    border-radius: 18px;
+    background: rgb(7 12 24 / 34%);
+    box-shadow:
+      inset 0 1px 0 rgb(244 248 252 / 12%),
+      0 28px 80px rgb(0 0 0 / 30%);
+    backdrop-filter: blur(28px) saturate(1.12);
+    -webkit-backdrop-filter: blur(28px) saturate(1.12);
+  }
+}
+
+.nebula [data-slot='sidebar-inset'] [data-slot='card'] {
+  border-color: rgb(244 248 252 / 7%);
+  background: transparent;
+  box-shadow: none;
+}
+
+.nebula [data-slot='sidebar-inset'] [data-slot='card-footer'],
+.nebula [data-slot='sidebar-inset'] [data-slot='table-footer'],
+.nebula [data-slot='sidebar-inset'] [data-slot='table-header'],
+.nebula [data-slot='sidebar-inset'] .bg-card {
+  background: transparent;
+}
+
+.nebula [data-slot='sidebar-inset'] [data-slot='table-row'] {
+  border-color: rgb(244 248 252 / 8%);
+}
+
+.nebula [data-slot='sidebar-inset'] [data-slot='tabs-list'] {
+  border-color: rgb(244 248 252 / 8%);
+  background: rgb(8 14 28 / 28%);
+}
+
+@media (max-width: 767px) {
+  .nebula [data-slot='sidebar-inset'] {
+    height: calc(100svh - var(--app-header-height, 0px) - 16px);
+    margin: 8px;
+    overflow: hidden;
+    border: 1px solid rgb(244 248 252 / 10%);
+    border-radius: 14px;
+    background: rgb(7 12 24 / 34%);
+    box-shadow: inset 0 1px 0 rgb(244 248 252 / 10%);
+    backdrop-filter: blur(24px) saturate(1.08);
+    -webkit-backdrop-filter: blur(24px) saturate(1.08);
+  }
+
+  .nebula [data-slot='sidebar'][data-mobile='true'] {
+    border-color: rgb(244 248 252 / 12%);
+    background: rgb(7 12 24 / 82%);
+    backdrop-filter: blur(22px) saturate(1.08);
+    -webkit-backdrop-filter: blur(22px) saturate(1.08);
+  }
+}
+
+.nebula-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #02030a;
+  pointer-events: none;
+}
+
+.nebula-background-unavailable {
+  background:
+    radial-gradient(circle at 16% 18%, rgb(82 164 222 / 22%), transparent 34%),
+    radial-gradient(circle at 78% 24%, rgb(155 98 210 / 22%), transparent 32%),
+    radial-gradient(circle at 52% 88%, rgb(211 76 145 / 18%), transparent 36%),
+    #02030a;
+}
+
+.nebula-home-fade-target {
+  opacity: 1;
+  transition: opacity 1.6s ease;
+}
+
+.nebula-home-content-hidden {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.nebula-home-active header {
+  opacity: 1;
+  transition: opacity 1.6s ease;
+}
+
+.nebula-home-active.nebula-home-idle header {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.nebula-home-active header > div > nav {
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.nebula-home-active [data-slot='public-layout'] {
+  background: transparent;
+}
+
+.nebula-home {
+  height: 100svh;
+  overflow: hidden;
+  color: #f8fbff;
+  user-select: none;
+}
+
+.nebula-home-hero,
+.nebula-home-inner {
+  height: 100%;
+}
+
+.nebula-home-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  box-sizing: border-box;
+  align-items: flex-end;
+  padding: clamp(2rem, 7vw, 5rem);
+  padding-top: 96px;
+}
+
+.nebula-home-content {
+  display: flex;
+  max-width: 780px;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.nebula-home-eyebrow {
+  margin: 0 0 0.75rem;
+  color: #8de6ff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.nebula-home h1 {
+  margin: 0;
+  font-size: clamp(3.5rem, 13vw, 9rem);
+  line-height: 0.82;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 40px rgb(141 230 255 / 24%);
+}
+
+.nebula-home-description {
+  max-width: 34rem;
+  margin-top: 2rem;
+  color: rgb(248 251 255 / 72%);
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.7;
+}
+
+.nebula-home-button {
+  border-color: rgb(248 251 255 / 18%);
+  background-color: rgb(8 14 28 / 48%);
+  color: #f8fbff;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 22%);
+  backdrop-filter: blur(18px);
+}
+
+.nebula-home-button:hover {
+  border-color: rgb(248 251 255 / 28%);
+  background-color: rgb(18 30 54 / 66%);
+  color: #fff;
+}
+
+@media (max-width: 767px) {
+  .nebula-home-inner {
+    padding: 1.5rem;
+    padding-top: 88px;
+  }
+
+  .nebula-home-content {
+    max-width: 100%;
+  }
+
+  .nebula-home h1 {
+    font-size: clamp(2.5rem, 12vw, 3.75rem);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+  }
+
+  .nebula-home-description {
+    margin-top: 1.5rem;
+  }
+}
+
 /* Vercel Geist-style skeleton shimmer */
 .skeleton-shimmer {
   background: linear-gradient(

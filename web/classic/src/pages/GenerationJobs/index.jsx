@@ -176,7 +176,7 @@ const GenerationJobs = () => {
             prompt: createForm.prompt.trim(),
             size: getCreateJobSize(createForm),
             n: createForm.n,
-            response_format: 'url',
+            response_format: 'b64_json',
             images,
           },
           {
@@ -192,7 +192,7 @@ const GenerationJobs = () => {
             prompt: createForm.prompt.trim(),
             size: getCreateJobSize(createForm),
             n: createForm.n,
-            response_format: 'url',
+            response_format: 'b64_json',
           },
           { headers: { Authorization: authHeader }, skipErrorHandler: true },
         );
@@ -932,7 +932,6 @@ function renderResultLinks(responseBody, t) {
             href={url}
             target='_blank'
             rel='noreferrer'
-            title={url}
             className='inline-flex rounded-full border border-semi-color-border px-2.5 py-1 text-xs leading-none text-semi-color-primary hover:border-semi-color-primary hover:bg-semi-color-primary-light-default'
           >
             {t('图片 {{index}}', { index: index + 1 })}

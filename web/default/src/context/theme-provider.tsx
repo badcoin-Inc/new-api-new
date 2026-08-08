@@ -27,13 +27,13 @@ import {
 
 import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 
-type Theme = 'dark' | 'light' | 'system'
-type ResolvedTheme = Exclude<Theme, 'system'>
+type Theme = 'dark' | 'light' | 'nebula' | 'system'
+type ResolvedTheme = 'dark' | 'light'
 
 const DEFAULT_THEME = 'system'
 const THEME_COOKIE_NAME = 'vite-ui-theme'
 const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
-const THEMES = new Set<Theme>(['dark', 'light', 'system'])
+const THEMES = new Set<Theme>(['dark', 'light', 'nebula', 'system'])
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -67,7 +67,8 @@ function getSystemTheme(): ResolvedTheme {
 }
 
 function resolveTheme(theme: Theme): ResolvedTheme {
-  return theme === 'system' ? getSystemTheme() : theme
+  if (theme === 'system') return getSystemTheme()
+  return theme === 'nebula' ? 'dark' : theme
 }
 
 function getStoredTheme(storageKey: string, fallback: Theme): Theme {
@@ -93,9 +94,10 @@ export function ThemeProvider({
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
     const applyTheme = () => {
-      const nextResolvedTheme = theme === 'system' ? getSystemTheme() : theme
-      root.classList.remove('light', 'dark')
+      const nextResolvedTheme = resolveTheme(theme)
+      root.classList.remove('light', 'dark', 'nebula')
       root.classList.add(nextResolvedTheme)
+      if (theme === 'nebula') root.classList.add('nebula')
       setResolvedTheme(nextResolvedTheme)
     }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -17,9 +18,14 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
-const r2Service = "s3"
+const (
+	r2Service                    = "s3"
+	defaultR2UploadExpireSeconds = 7 * 24 * 60 * 60
+)
 
 type R2UploadConfig struct {
 	AccountID     string
@@ -39,7 +45,7 @@ func LoadR2UploadConfig() R2UploadConfig {
 		Bucket:        strings.TrimSpace(os.Getenv("R2_BUCKET")),
 		ObjectPrefix:  strings.Trim(strings.TrimSpace(common.GetEnvOrDefaultString("R2_OBJECT_PREFIX", "generation-jobs")), "/"),
 		PublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("R2_PUBLIC_BASE_URL")), "/"),
-		ExpireSeconds: common.GetEnvOrDefault("R2_UPLOAD_EXPIRE_SECONDS", 604800),
+		ExpireSeconds: common.GetEnvOrDefault("R2_UPLOAD_EXPIRE_SECONDS", defaultR2UploadExpireSeconds),
 	}
 }
 
@@ -57,6 +63,10 @@ func (c R2UploadConfig) Enabled() bool {
 
 func UploadGenerationJobObject(ctx context.Context, data []byte, filename string, contentType string) (string, error) {
 	cfg := LoadR2UploadConfig()
+	return uploadGenerationJobObject(ctx, cfg, data, filename, contentType)
+}
+
+func uploadGenerationJobObject(ctx context.Context, cfg R2UploadConfig, data []byte, filename string, contentType string) (string, error) {
 	if !cfg.Enabled() {
 		return "", errors.New("R2 upload requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, and R2_PUBLIC_BASE_URL")
 	}
@@ -65,6 +75,174 @@ func UploadGenerationJobObject(ctx context.Context, data []byte, filename string
 	}
 	objectKey := generationJobObjectKey(cfg.ObjectPrefix, filename)
 	return uploadBytesToR2(ctx, cfg, objectKey, contentType, data)
+}
+
+type generationJobImageUploader func(context.Context, R2UploadConfig, []byte, string, string) (string, error)
+
+// StoreGenerationJobImageResults keeps upstream URLs unchanged and replaces
+// base64 image results with R2-backed URLs before a generation job is stored.
+func StoreGenerationJobImageResults(ctx context.Context, responseBody []byte) ([]byte, error) {
+	return storeGenerationJobImageResults(ctx, responseBody, LoadR2UploadConfig(), uploadGenerationJobObject)
+}
+
+func storeGenerationJobImageResults(ctx context.Context, responseBody []byte, cfg R2UploadConfig, upload generationJobImageUploader) ([]byte, error) {
+	if !gjson.ValidBytes(responseBody) {
+		return responseBody, errors.New("generation job image response is not valid JSON")
+	}
+	data := gjson.GetBytes(responseBody, "data")
+	if !data.IsArray() {
+		return responseBody, nil
+	}
+
+	rewritten := responseBody
+	var resultErr error
+	expiresAt := int64(0)
+	if cfg.ExpireSeconds > 0 {
+		expiresAt = time.Now().Unix() + int64(cfg.ExpireSeconds)
+	}
+
+	data.ForEach(func(key, value gjson.Result) bool {
+		index := key.Int()
+		path := fmt.Sprintf("data.%d", index)
+		rawURL := strings.TrimSpace(value.Get("url").String())
+		base64Result := strings.TrimSpace(value.Get("b64_json").String())
+		isDataURL := strings.HasPrefix(strings.ToLower(rawURL), "data:")
+
+		if base64Result == "" && isDataURL {
+			base64Result = rawURL
+		}
+		if base64Result == "" {
+			return true
+		}
+
+		imageData, contentType, err := decodeGenerationJobImageResult(base64Result)
+		if err != nil {
+			if rawURL != "" && !isDataURL {
+				updated, deleteErr := sjson.DeleteBytes(rewritten, path+".b64_json")
+				if deleteErr != nil {
+					resultErr = errors.Join(resultErr, fmt.Errorf("remove image result %d base64: %w", index, deleteErr))
+					return true
+				}
+				rewritten = updated
+				return true
+			}
+			resultErr = errors.Join(resultErr, fmt.Errorf("decode image result %d: %w", index, err))
+			return true
+		}
+		storedURL, err := upload(ctx, cfg, imageData, generationJobImageResultFilename(contentType), contentType)
+		if err != nil {
+			if rawURL != "" && !isDataURL {
+				updated, deleteErr := sjson.DeleteBytes(rewritten, path+".b64_json")
+				if deleteErr != nil {
+					resultErr = errors.Join(resultErr, fmt.Errorf("remove image result %d base64: %w", index, deleteErr))
+					return true
+				}
+				rewritten = updated
+				return true
+			}
+			resultErr = errors.Join(resultErr, fmt.Errorf("upload image result %d: %w", index, err))
+			return true
+		}
+
+		updated, err := sjson.SetBytes(rewritten, path+".url", storedURL)
+		if err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("set image result %d url: %w", index, err))
+			return true
+		}
+		rewritten = updated
+		updated, err = sjson.DeleteBytes(rewritten, path+".b64_json")
+		if err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("remove image result %d base64: %w", index, err))
+			return true
+		}
+		rewritten = updated
+		if expiresAt > 0 {
+			updated, err = sjson.SetBytes(rewritten, path+".expires_at", expiresAt)
+			if err != nil {
+				resultErr = errors.Join(resultErr, fmt.Errorf("set image result %d expiration: %w", index, err))
+				return true
+			}
+			rewritten = updated
+		}
+		updated, err = sjson.SetBytes(rewritten, path+".mime_type", contentType)
+		if err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("set image result %d mime type: %w", index, err))
+			return true
+		}
+		rewritten = updated
+		return true
+	})
+
+	return rewritten, resultErr
+}
+
+func decodeGenerationJobImageResult(raw string) ([]byte, string, error) {
+	raw = strings.TrimSpace(raw)
+	contentType := ""
+	if strings.HasPrefix(strings.ToLower(raw), "data:") {
+		comma := strings.Index(raw, ",")
+		if comma == -1 {
+			return nil, "", errors.New("invalid image data URL")
+		}
+		metadata := strings.Split(raw[len("data:"):comma], ";")
+		if len(metadata) > 0 {
+			contentType = strings.TrimSpace(metadata[0])
+		}
+		isBase64 := false
+		for _, part := range metadata[1:] {
+			if strings.EqualFold(strings.TrimSpace(part), "base64") {
+				isBase64 = true
+				break
+			}
+		}
+		if !isBase64 {
+			return nil, "", errors.New("image data URL is not base64 encoded")
+		}
+		raw = raw[comma+1:]
+	}
+	if raw == "" {
+		return nil, "", errors.New("image base64 result is empty")
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		decoded, err = base64.RawStdEncoding.DecodeString(raw)
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	if len(decoded) == 0 {
+		return nil, "", errors.New("decoded image result is empty")
+	}
+	if contentType == "" || strings.EqualFold(contentType, "application/octet-stream") {
+		contentType = http.DetectContentType(decoded)
+	}
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	if !strings.HasPrefix(contentType, "image/") {
+		return nil, "", fmt.Errorf("invalid image content type: %s", contentType)
+	}
+	return decoded, contentType, nil
+}
+
+func generationJobImageResultFilename(contentType string) string {
+	extension := ".bin"
+	switch strings.ToLower(strings.TrimSpace(contentType)) {
+	case "image/png":
+		extension = ".png"
+	case "image/jpeg", "image/jpg":
+		extension = ".jpg"
+	case "image/webp":
+		extension = ".webp"
+	case "image/gif":
+		extension = ".gif"
+	case "image/avif":
+		extension = ".avif"
+	case "image/heic":
+		extension = ".heic"
+	case "image/heif":
+		extension = ".heif"
+	}
+	return "result" + extension
 }
 
 func generationJobObjectKey(prefix string, filename string) string {

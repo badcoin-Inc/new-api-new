@@ -145,13 +145,13 @@ func generationJobRequestBody(c *gin.Context, jobPath string, imageReq *dto.Imag
 		return nil, err
 	}
 
-	// Generation jobs persist the original request for worker retries. Keep the
-	// output contract stable even when a caller omits response_format.
+	// Generation jobs persist the original request for worker retries. Request
+	// base64 results so the worker can store them in R2 before persistence.
 	var requestBody map[string]json.RawMessage
 	if err := common.Unmarshal(body, &requestBody); err != nil {
 		return nil, err
 	}
-	responseFormat, err := common.Marshal("url")
+	responseFormat, err := common.Marshal("b64_json")
 	if err != nil {
 		return nil, err
 	}
@@ -573,7 +573,12 @@ func runGenerationJobRequest(job *model.GenerationJob) (int, []byte, int, int, s
 	if newAPIError != nil {
 		return newAPIError.StatusCode, w.Body.Bytes(), parseRecorderRetryAfter(w), billing.actualQuota, newAPIError.MaskSensitiveOriginalErrorWithStatusCode(), newAPIError
 	}
-	return w.Code, w.Body.Bytes(), parseRecorderRetryAfter(w), billing.actualQuota, "", nil
+	responseBody := w.Body.Bytes()
+	storedResponseBody, storageErr := service.StoreGenerationJobImageResults(reqCtx, responseBody)
+	if storageErr != nil {
+		logger.LogWarn(reqCtx, fmt.Sprintf("store generation job image results failed job=%s: %s", job.JobID, storageErr.Error()))
+	}
+	return w.Code, storedResponseBody, parseRecorderRetryAfter(w), billing.actualQuota, "", nil
 }
 
 type generationJobBillingSession struct {

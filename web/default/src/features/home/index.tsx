@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
@@ -27,12 +27,14 @@ import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CTA, Features, Hero, HowItWorks, Stats } from './components'
+import { NebulaHome } from './components/nebula-home'
 import { useHomePageContent } from './hooks'
 
 export function Home() {
   const { i18n, t } = useTranslation()
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const { resolvedTheme } = useTheme()
+  const { resolvedTheme, theme } = useTheme()
+  const [hideNebulaContent, setHideNebulaContent] = useState(false)
   const { auth } = useAuthStore()
   const isAuthenticated = !!auth.user
   const { content, isLoaded, isUrl } = useHomePageContent()
@@ -57,6 +59,39 @@ export function Home() {
       syncIframePreferences()
     }
   }, [isUrl, syncIframePreferences])
+
+  useEffect(() => {
+    if (theme !== 'nebula' || window.matchMedia('(max-width: 767px)').matches) {
+      setHideNebulaContent(false)
+      return
+    }
+
+    let timer = 0
+    const resetIdleTimer = () => {
+      setHideNebulaContent(false)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setHideNebulaContent(true), 10000)
+    }
+
+    resetIdleTimer()
+    window.addEventListener('mousemove', resetIdleTimer, { passive: true })
+    return () => {
+      window.removeEventListener('mousemove', resetIdleTimer)
+      window.clearTimeout(timer)
+    }
+  }, [theme])
+
+  useEffect(() => {
+    const active = theme === 'nebula' && isLoaded && !content
+    document.body.classList.toggle('nebula-home-active', active)
+    document.body.classList.toggle(
+      'nebula-home-idle',
+      active && hideNebulaContent
+    )
+    return () => {
+      document.body.classList.remove('nebula-home-active', 'nebula-home-idle')
+    }
+  }, [content, hideNebulaContent, isLoaded, theme])
 
   if (!isLoaded) {
     return (
@@ -108,6 +143,14 @@ export function Home() {
             className='custom-home-content'
           />
         </div>
+      </PublicLayout>
+    )
+  }
+
+  if (theme === 'nebula') {
+    return (
+      <PublicLayout showMainContainer={false}>
+        <NebulaHome contentHidden={hideNebulaContent} />
       </PublicLayout>
     )
   }

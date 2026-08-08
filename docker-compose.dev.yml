@@ -26,7 +26,7 @@ services:
       - path: ./.env
         required: false
     ports:
-      - "127.0.0.1:3000:3000" # 只允许本地访问，防止绕过雷池直连
+      - "0.0.0.0:3000:3000" # 只允许本地访问，防止绕过雷池直连
     volumes:
       - dev_data:/data
     environment:
