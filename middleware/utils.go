@@ -34,7 +34,14 @@ func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code
 		},
 	})
 	c.Abort()
-	logger.LogError(c.Request.Context(), fmt.Sprintf("user %d | code=%s | %s", userId, codeStr, message))
+	logMessage := fmt.Sprintf("user %d | code=%s", userId, codeStr)
+	if apiErr.GetErrorCode() == types.ErrorCodeModelNotFound {
+		modelName := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
+		if modelName != "" {
+			logMessage += fmt.Sprintf(" | model=%q", modelName)
+		}
+	}
+	logger.LogError(c.Request.Context(), fmt.Sprintf("%s | %s", logMessage, message))
 }
 
 func abortWithMidjourneyMessage(c *gin.Context, statusCode int, code int, description string) {

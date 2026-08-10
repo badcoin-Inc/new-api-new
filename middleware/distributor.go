@@ -38,6 +38,7 @@ func Distribute() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
+		common.SetContextKey(c, constant.ContextKeyOriginalModel, modelRequest.Model)
 		if ok {
 			id, err := strconv.Atoi(channelId.(string))
 			if err != nil {
